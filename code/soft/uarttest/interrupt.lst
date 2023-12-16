@@ -1,0 +1,241 @@
+Sections:
+00: ".text" (0-128)
+01: ".bss" (0-62)
+
+
+Source: "interrupt.asm"
+                            	     1: ;------------------------------------------------------------
+                            	     2: ;                                  ___ ___ _   
+                            	     3: ;  ___ ___ ___ ___ ___       _____|  _| . | |_ 
+                            	     4: ; |  _| . |_ -|  _| . |     |     | . | . | '_|
+                            	     5: ; |_| |___|___|___|___|_____|_|_|_|___|___|_,_| 
+                            	     6: ;                     |_____|         libraries
+                            	     7: ;------------------------------------------------------------
+                            	     8: ; Copyright (c)2023 Ross Bamford
+                            	     9: ; See top-level LICENSE.md for licence information.
+                            	    10: ;
+                            	    11: ; interrupt for buffered DUART for debugger
+                            	    12: ;
+                            	    13: ; This is **not** general purpose, it's specifically wired to
+                            	    14: ; yank the breakpoint trap when Ctrl-C is received...
+                            	    15: ;
+                            	    16: ; The bits that do that are commented (there's one for each
+                            	    17: ; UART).
+                            	    18: ;
+                            	    19: ; See comments in gdb-support.c about potentially simplifying
+                            	    20: ; this whole piece...
+                            	    21: ;------------------------------------------------------------
+                            	    22: 
+                            	    23:         section .text
+                            	    24:         align 2
+                            	    25: ; DUART register offsets
+                            	    26: DUART_MRA       equ     $00
+                            	    27: DUART_CSRA      equ     $02
+                            	    28: DUART_SRA       equ     $02
+                            	    29: DUART_CRA       equ     $04
+                            	    30: DUART_RBA       equ     $06
+                            	    31: DUART_IMR       equ     $0a
+                            	    32: DUART_ISR       equ     $0a
+                            	    33: DUART_MRB       equ     $10
+                            	    34: DUART_SRB       equ     $12
+                            	    35: DUART_CSRB      equ     $12
+                            	    36: DUART_CRB       equ     $14
+                            	    37: DUART_RBB       equ     $16
+                            	    38: 
+                            	    39: ; DUART interrupt vector address
+                            	    40: VECADDR         equ     $45<<2
+                            	    41: 
+                            	    42: 
+                            	    43: ; C callable - void duart_install_interrupt(CHAR_DEVICE *device, RingBuffer *uart_a, RingBuffer *uart_b)
+                            	    44: ;
+                            	    45: ; If you don't want to install for both UARTs, pass NULL for either RingBuffer pointer.
+                            	    46: ;
+                            	    47: duart_install_interrupt::
+00:00000000 48E780C0        	    48:         movem.l A0-A1/D0,-(A7)
+                            	    49: 
+00:00000004 40C0            	    50:         move.w  SR,D0                           ; Save SR
+00:00000006 007C0700        	    51:         or.w    #$0700,SR                       ; No interrupts for a bit
+                            	    52: 
+00:0000000A 206F0010        	    53:         move.l  16(A7),A0                       ; Get BASEADDR structure
+00:0000000E 2050            	    54:         move.l  (A0),A0                         ; Get base address
+                            	    55: 
+00:00000010 226F0014        	    56:         move.l  20(A7),A1                       ; Get RingBuffer A pointer
+00:00000014 23C900000000    	    57:         move.l  A1,RINGBUF_A                    ; Store it
+00:0000001A 6714            	    58:         beq.s   .uartb                          ; Skip setup if it's NULL
+                            	    59: 
+                            	    60:         ; Ensure UART A is set up just like we like it...
+00:0000001C 117C00880002    	    61:         move.b  #$88,DUART_CSRA(A0)             ; 115K2
+00:00000022 117C00100004    	    62:         move.b  #$10,DUART_CRA(A0)              ; Reset to MR1A
+00:00000028 10BC0013        	    63:         move.b  #$13,DUART_MRA(A0)              ; Ensure No RTS, RxRDY, Char, No parity, 8 bits
+00:0000002C 10BC0007        	    64:         move.b  #$07,DUART_MRA(A0)              ; (Normal, No TX CTS/RTS, 1 stop bit)
+                            	    65: 
+                            	    66: .uartb
+00:00000030 226F0018        	    67:         move.l  24(A7),A1                       ; Get RingBuffer B pointer
+00:00000034 23C900000004    	    68:         move.l  A1,RINGBUF_B                    ; Dereference and store it
+00:0000003A 6718            	    69:         beq.s   .done                           ; Skip setup if it's NULL
+                            	    70: 
+                            	    71:         ; Ensure UART B is set up just like we like it...
+00:0000003C 117C00880012    	    72:         move.b  #$88,DUART_CSRB(A0)             ; 115K2
+                            	    73:         ;move.b  #$BB,DUART_CSRB(A0)             ; 9600
+00:00000042 117C00100014    	    74:         move.b  #$10,DUART_CRB(A0)              ; Reset to MR1B
+00:00000048 117C00130010    	    75:         move.b  #$13,DUART_MRB(A0)              ; Ensure No RTS, RxRDY, Char, No parity, 8 bits
+00:0000004E 117C00070010    	    76:         move.b  #$07,DUART_MRB(A0)              ; (Normal, No TX CTS/RTS, 1 stop bit)
+                            	    77:         ;move.b  #$93,DUART_MRB(A0)              ; RTS, RxRDY, Char, No parity, 8 bits
+                            	    78:         ;move.b  #$37,DUART_MRB(A0)              ; (Normal, TX CTS/RTS, 1 stop bit)
+                            	    79: 
+                            	    80: .done
+00:00000054 23C800000008    	    81:         move.l  A0,BASEADDR                     ; Store BASEADDR base pointer
+00:0000005A 23F801140000000C	    82:         move.l  VECADDR,CHAIN                   ; Store existing handler
+00:00000062 21FC0000009E0114	    83:         move.l  #HANDLER,VECADDR                ; And install new one
+                            	    84: 
+00:0000006A 117C0028000A    	    85:         move.b  #$28,DUART_IMR(A0)              ; Enable RXRDY/RXFULL interrupt and keep counter going
+00:00000070 46C0            	    86:         move.w  D0,SR                           ; Re-enable interrupts
+                            	    87: 
+00:00000072 4CDF0301        	    88:         movem.l (A7)+,A0-A1/D0
+00:00000076 4E75            	    89:         rts
+                            	    90: 
+                            	    91: 
+                            	    92: ; C callable - void remove_interrupt(void)
+                            	    93: ;
+                            	    94: duart_remove_interrupt::
+00:00000078 48E780C0        	    95:         movem.l D0/A0-A1,-(A7)
+                            	    96: 
+00:0000007C 40C0            	    97:         move.w  SR,D0                           ; Save SR
+00:0000007E 007C0700        	    98:         or.w    #$0700,SR                       ; No interrupts for a bit
+                            	    99: 
+00:00000082 21F90000000C0114	   100:         move.l  CHAIN,VECADDR                   ; Restore original handler
+00:0000008A 207900000008    	   101:         move.l  BASEADDR,A0                     ; Get BASEADDR structure
+00:00000090 117C0008000A    	   102:         move.b  #$08,DUART_IMR(A0)              ; Just keep counter going
+                            	   103: 
+00:00000096 46C0            	   104:         move.w  D0,SR                           ; Re-enable interrupts
+00:00000098 4CDF0301        	   105:         movem.l (A7)+,D0/A0-A1
+00:0000009C 4E75            	   106:         rts
+                            	   107: 
+                            	   108: 
+                            	   109: ; The interrupt handler (also chains to the original handler)
+                            	   110: HANDLER:
+00:0000009E 48E7C0E0        	   111:         movem.l D0-D1/A0-A2,-(A7)
+00:000000A2 427900000060    	   112:         clr.w   INTR_FLAG                       ; Clear the CTRL-C interrupt flag
+00:000000A8 207900000008    	   113:         move.l  BASEADDR,A0                     ; Load BASEADDR pointer
+00:000000AE 43F900000000    	   114:         move.l  #duart_buffer_char,A1           ; Buffer routine in A1
+00:000000B4 247900000000    	   115:         move.l  RINGBUF_A,A2                    ; UART A RingBuffer in A2
+00:000000BA B4FC0000        	   116:         cmp.l   #0,A2                           ; Is the pointer NULL?
+00:000000BE 672E            	   117:         beq.s   .uartB                          ; Skip to DUART B if so...
+                            	   118: 
+                            	   119: ;; UART A
+                            	   120: .loopA
+00:000000C0 1028000A        	   121:         move.b  DUART_ISR(A0),D0
+00:000000C4 08000001        	   122:         btst    #1,D0                           ; Check if ready bit is set
+00:000000C8 6724            	   123:         beq.s   .uartB                          ; Just bail now if not (and go check UART B)
+                            	   124: 
+00:000000CA 10380002        	   125:         move.b  DUART_SRA,D0                    ; Check if error bits are set
+00:000000CE C03C00F0        	   126:         and.b   #$F0,D0
+00:000000D2 6702            	   127:         beq.s   .contA                          ; Continue if not...
+00:000000D4 6108            	   128:         bsr.s   .error                          ; ... else branch error subroutine
+                            	   129: 
+                            	   130: .contA
+00:000000D6 10280006        	   131:         move.b  DUART_RBA(A0),D0                ; Grab character from A receive buffer
+00:000000DA 4E91            	   132:         jsr     (A1)                            ; Call duart_buffer_char
+                            	   133: 
+00:000000DC 60E2            	   134:         bra.s   .loopA                          ; And continue testing...
+                            	   135: 
+                            	   136: ; .error is a subroutine, used by both A and B
+                            	   137: .error
+00:000000DE 1200            	   138:         move.b  D0,D1                           ; Every day I'm shufflin' (registers)
+00:000000E0 08010004        	   139:         btst    #4,D1                           ; Overrun error?
+00:000000E4 6706            	   140:         beq.s   .notoverrun        
+00:000000E6 117C00400004    	   141:         move.b  #$40,DUART_CRA(A0)              ; Reset overrun error status
+                            	   142: 
+                            	   143: .notoverrun
+00:000000EC 4E75            	   144:         rts
+                            	   145:         
+                            	   146: ;; UART B
+                            	   147: .uartB
+00:000000EE 247900000004    	   148:         move.l  RINGBUF_B,A2                    ; UART B RingBuffer in A2
+00:000000F4 B4FC0000        	   149:         cmp.l   #0,A2                           ; Is the pointer NULL?
+00:000000F8 67000022        	   150:         beq.w   .chain                          ; Skip to chained handler if so...
+                            	   151: 
+                            	   152: .loopB
+00:000000FC 1028000A        	   153:         move.b  DUART_ISR(A0),D0
+00:00000100 08000005        	   154:         btst    #5,D0                           ; Check if ready bit is set
+00:00000104 6716            	   155:         beq.s   .chain                          ; Just bail now if not (and go check timer tick)
+                            	   156: 
+00:00000106 10380012        	   157:         move.b  DUART_SRB,D0                    ; Check if error bits are set
+00:0000010A C03C00F0        	   158:         and.b   #$F0,D0
+00:0000010E 6702            	   159:         beq.s   .contB                          ; Continue if not...
+00:00000110 61CC            	   160:         bsr.s   .error                          ; ... else branch error subroutine
+                            	   161: 
+                            	   162: .contB        
+00:00000112 10280016        	   163:         move.b  DUART_RBB(A0),D0                ; Grab character from B receive buffer
+                            	   164: 
+                            	   165: .do_buffer_b:
+00:00000116 4E91            	   166:         jsr     (A1)                            ; Call duart_buffer_char
+                            	   167: 
+00:00000118 6000FFE2        	   168:         bra.w   .loopB                          ; And continue testing...
+                            	   169: 
+                            	   170: .chain
+00:0000011C 4CDF0703        	   171:         movem.l (A7)+,D0-D1/A0-A2               ; Restore regs...
+00:00000120 2F390000000C    	   172:         move.l  CHAIN,-(A7)                     ; And "return to" the original ISR
+00:00000126 4E75            	   173:         rts
+                            	   174: 
+                            	   175: 
+                            	   176:         section .bss
+                            	   177:         align 2
+01:00000000 00000000        	   178: RINGBUF_A   dc.l        0                       ; Ringbuffer for UART A
+01:00000004 00000000        	   179: RINGBUF_B   dc.l        0                       ; Ringbuffer for UART B
+01:00000008 00000000        	   180: BASEADDR    dc.l        0                       ; DUART base address from CHAR_DEVICE struct     
+01:0000000C 00000000        	   181: CHAIN       dc.l        0                       ; Chained ISR (timer tick probably)
+01:00000010 00000000        	   182: TEMP_REGS   ds.l        20                      ; Temp register storage for HANDLER
+01:00000014 *
+01:00000060 0000            	   183: INTR_FLAG   dc.w        0                       ; Interrupt set flag for HANDLER
+                            	   184: 
+
+
+Symbols by name:
+BASEADDR                        01:00000008
+CHAIN                           01:0000000C
+DUART_CRA                        E:00000004
+DUART_CRB                        E:00000014
+DUART_CSRA                       E:00000002
+DUART_CSRB                       E:00000012
+DUART_IMR                        E:0000000A
+DUART_ISR                        E:0000000A
+DUART_MRA                        E:00000000
+DUART_MRB                        E:00000010
+DUART_RBA                        E:00000006
+DUART_RBB                        E:00000016
+DUART_SRA                        E:00000002
+DUART_SRB                        E:00000012
+HANDLER                         00:0000009E
+INTR_FLAG                       01:00000060
+RINGBUF_A                       01:00000000
+RINGBUF_B                       01:00000004
+TEMP_REGS                       01:00000010
+VECADDR                          E:00000114
+duart_buffer_char               external
+duart_install_interrupt         00:00000000 EXP
+duart_remove_interrupt          00:00000078 EXP
+
+Symbols by value:
+00000000 duart_install_interrupt
+00000000 RINGBUF_A
+00000000 DUART_MRA
+00000002 DUART_SRA
+00000002 DUART_CSRA
+00000004 RINGBUF_B
+00000004 DUART_CRA
+00000006 DUART_RBA
+00000008 BASEADDR
+0000000A DUART_IMR
+0000000A DUART_ISR
+0000000C CHAIN
+00000010 DUART_MRB
+00000010 TEMP_REGS
+00000012 DUART_SRB
+00000012 DUART_CSRB
+00000014 DUART_CRB
+00000016 DUART_RBB
+00000060 INTR_FLAG
+00000078 duart_remove_interrupt
+0000009E HANDLER
+00000114 VECADDR

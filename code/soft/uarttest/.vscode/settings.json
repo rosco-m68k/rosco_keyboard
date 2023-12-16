@@ -1,0 +1,5 @@
+{
+    "files.associations": {
+        "buffered_uart.h": "c"
+    }
+}

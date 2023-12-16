@@ -1,0 +1,124 @@
+Sections:
+00: ".text" (0-90)
+
+
+Source: "buffer.asm"
+                            	     1: ;------------------------------------------------------------
+                            	     2: ;                                  ___ ___ _   
+                            	     3: ;  ___ ___ ___ ___ ___       _____|  _| . | |_ 
+                            	     4: ; |  _| . |_ -|  _| . |     |     | . | . | '_|
+                            	     5: ; |_| |___|___|___|___|_____|_|_|_|___|___|_,_| 
+                            	     6: ;                     |_____|         libraries
+                            	     7: ;------------------------------------------------------------
+                            	     8: ; Copyright (c)2023 Ross Bamford
+                            	     9: ; See top-level LICENSE.md for licence information.
+                            	    10: ;
+                            	    11: ; ring buffer for buffered DUART in debugger
+                            	    12: ;
+                            	    13: ; This is probably general-purpose enough to be extracted
+                            	    14: ; if there's value in doing so...
+                            	    15: ;------------------------------------------------------------
+                            	    16:         
+                            	    17:         section .text
+                            	    18:         align 2
+                            	    19: ; ASM callable - pass character in D0
+                            	    20: ;
+                            	    21: ; Expects to be called in interrupt context, not re-entrant.
+                            	    22: ;
+                            	    23: ; Arguments:
+                            	    24: ;
+                            	    25: ;   A2   - RingBuffer pointer
+                            	    26: ;   D0.B - The character
+                            	    27: ;
+                            	    28: duart_buffer_char::
+00:00000000 48E76080        	    29:         movem.l A0/D1-D2,-(A7)                  ; Stash regs
+00:00000004 41EA0006        	    30:         lea.l   6(A2),A0                        ; Point A0 to the data buffer
+00:00000008 322A0002        	    31:         move.w  2(A2),D1                        ; Get the current write pointer into D1
+00:0000000C 342A0004        	    32:         move.w  4(A2),D2                        ; Get mask into D2
+00:00000010 11801000        	    33:         move.b  D0,(A0,D1)                      ; Buffer the character
+00:00000014 5241            	    34:         addi.w  #1,D1                           ; Increment write pointer...
+00:00000016 C242            	    35:         and.w   D2,D1                           ; ... keep it within range
+00:00000018 35410002        	    36:         move.w  D1,2(A2)                        ; ... and store it back in the struct
+00:0000001C 4CDF0106        	    37:         movem.l (A7)+,A0/D1-D2                  ; Restore regs
+00:00000020 4E75            	    38:         rts                                     ; Fin.
+                            	    39: 
+                            	    40: 
+                            	    41: ; C-callable - pass RingBuffer pointer and a 1K buffer pointer on the stack. Returns actual count.
+                            	    42: ;
+                            	    43: ; uint16_t unbuffer(RingBuffer *rb, uint8_t *outBuffer)
+                            	    44: ;
+                            	    45: duart_unbuffer::
+00:00000022 48E778C0        	    46:         movem.l D1-D4/A0-A1,-(A7)
+00:00000026 40C4            	    47:         move.w  SR,D4                           ; Save SR
+00:00000028 007C0700        	    48:         or.w    #$0700,SR                       ; No interrupts for a bit
+                            	    49: 
+00:0000002C 206F001C        	    50:         move.l  28(A7),A0                       ; Load internal buffer into A0
+00:00000030 226F0020        	    51:         move.l  32(A7),A1                       ; Load out buffer into A1
+00:00000034 7000            	    52:         clr.l   D0                              ; Zero return value
+                            	    53: 
+00:00000036 3218            	    54:         move.w  (A0)+,D1                        ; D1 is R pointer
+00:00000038 3418            	    55:         move.w  (A0)+,D2                        ; D2 is W pointer
+00:0000003A 3618            	    56:         move.w  (A0)+,D3                        ; D3 is mask
+                            	    57: 
+                            	    58: .loop
+00:0000003C B242            	    59:         cmp.w   D2,D1                           ; Are pointers equal?
+00:0000003E 670C            	    60:         beq.s   .done                           ; Leave now if so...
+                            	    61: 
+00:00000040 12F01000        	    62:         move.b  (A0,D1),(A1)+                   ; Copy byte into out buffer
+00:00000044 5240            	    63:         addi.w  #1,D0                           ; Increment return value (count)
+00:00000046 5241            	    64:         addi.w  #1,D1                           ; Increment read pointer...
+00:00000048 C243            	    65:         and.w   D3,D1                           ; ... and wrap is > size
+00:0000004A 60F0            	    66:         bra.s   .loop                           ; Let's go again!
+                            	    67: 
+                            	    68: .done:
+00:0000004C 206F001C        	    69:         move.l  28(A7),A0                       ; Re-fetch RingBuffer pointer
+00:00000050 3081            	    70:         move.w  D1,(A0)                         ; Store updated read pointer
+00:00000052 46C4            	    71:         move.w  D4,SR                           ; Re-enable interrupts
+00:00000054 4CDF031E        	    72:         movem.l (A7)+,D1-D4/A0-A1
+00:00000058 4E75            	    73:         rts
+                            	    74: 
+                            	    75: 
+                            	    76: ; C-callable - pass RingBuffer pointer and a byte buffer pointer on the stack. Returns actual count.
+                            	    77: ;
+                            	    78: ; uint16_t unbuffer_one(RingBuffer *rb, uint8_t *outBuffer)
+                            	    79: ;
+                            	    80: duart_unbuffer_one::
+00:0000005A 48E778C0        	    81:         movem.l D1-D4/A0-A1,-(A7)
+00:0000005E 40C4            	    82:         move.w  SR,D4                           ; Save SR
+00:00000060 007C0700        	    83:         or.w    #$0700,SR                       ; No interrupts for a bit
+                            	    84: 
+00:00000064 206F001C        	    85:         move.l  28(A7),A0                       ; Load internal buffer into A0
+00:00000068 226F0020        	    86:         move.l  32(A7),A1                       ; Load out buffer into A1
+00:0000006C 7000            	    87:         clr.l   D0                              ; Zero return value
+                            	    88: 
+00:0000006E 3218            	    89:         move.w  (A0)+,D1                        ; D1 is R pointer
+00:00000070 3418            	    90:         move.w  (A0)+,D2                        ; D2 is W pointer
+00:00000072 3618            	    91:         move.w  (A0)+,D3                        ; D3 is mask
+                            	    92: 
+00:00000074 B242            	    93:         cmp.w   D2,D1                           ; Are pointers equal?
+00:00000076 6710            	    94:         beq.s   .done                           ; Leave now if so...
+                            	    95: 
+00:00000078 12F01000        	    96:         move.b  (A0,D1),(A1)+                   ; Copy byte into out buffer
+00:0000007C 5240            	    97:         addi.w  #1,D0                           ; Increment return value (count)
+00:0000007E 5241            	    98:         addi.w  #1,D1                           ; Increment read pointer...
+00:00000080 C243            	    99:         and.w   D3,D1                           ; ... and wrap is > size
+                            	   100: 
+00:00000082 206F001C        	   101:         move.l  28(A7),A0                       ; Re-fetch RingBuffer pointer
+00:00000086 3081            	   102:         move.w  D1,(A0)                         ; Store updated read pointer
+                            	   103: .done:
+00:00000088 46C4            	   104:         move.w  D4,SR                           ; Re-enable interrupts
+00:0000008A 4CDF031E        	   105:         movem.l (A7)+,D1-D4/A0-A1
+00:0000008E 4E75            	   106:         rts
+                            	   107: 
+                            	   108: 
+
+
+Symbols by name:
+duart_buffer_char               00:00000000 EXP
+duart_unbuffer                  00:00000022 EXP
+duart_unbuffer_one              00:0000005A EXP
+
+Symbols by value:
+00000000 duart_buffer_char
+00000022 duart_unbuffer
+0000005A duart_unbuffer_one
