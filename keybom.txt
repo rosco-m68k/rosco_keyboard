@@ -1,0 +1,18 @@
+Keycaps per design:
+
+* 1x1 Blue      * 2     [ESC, ~`]
+* 1x1 Green     * 4     [1!, Q, A, Z]
+* 1x1 Red       * 4     [2@, W, S, X]
+* 1x1 Black     * 5     [F1, F2, F3, F4, F5]
+* 1x1 White     * 38    [...]
+* 1.25x1 Blue   * 7     [TAB, LSHIFT, LCTRL, LCMD, RCMD, OPTION, RCTRL]
+* 1.25x1 Green  * 2     [LROSCO, RROSCO]
+* 1.5x1 Blue    * 1     [CAPSLOCK]
+* 1.5x1 Red     * 1     [BACKSPACE]
+* 2.5x1 * Blue  * 1     [RSHIFT]
+* 6x1 White     * 1     [SPACE]
+
+Plus: 
+
+* 1.25/1.5 x 2/1 Green  [ISO ENTER]
+
