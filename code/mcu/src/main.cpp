@@ -53,11 +53,25 @@
 #define CMD_RPT_DELAY_SET   0x11
 #define CMD_RPT_RATE_SET    0x12
 // 0x13 - 0xef reserved...
-#define CMD_RESET           0xf0
-// 0xf1 - 0xff reserved...
+#define CMD_IDENT           0xf0
+#define CMD_RESET           0xf1
+// 0xf2 - 0xff reserved...
 
-#define CMD_ACK             0xff
-#define CMD_NAK             0x0
+#define CMD_ACK             ((uint8_t)0xff)
+#define CMD_NAK             ((uint8_t)0x0)
+
+#define KEY_COUNT           ((uint8_t)67)
+#define LED_COUNT           ((uint8_t)8)
+
+#define CAP_KBD             0x01
+#define CAP_SPI             0x02
+#define CAP_I2C             0x04
+#define CAP_PWM             0x08
+#define CAP_RESERVED        0x80    // Must never be set!
+#define CAPABILITIES        ((uint8_t)(CAP_KBD | CAP_SPI | CAP_I2C | CAP_PWM))
+
+#define IDENT_MODE_SCAN     ((uint8_t)0)
+#define IDENT_MODE_ASCII    ((uint8_t)1)
 
 // One mega64 we're using UART 1
 #define UART                Serial1
@@ -280,6 +294,18 @@ static void process_command(int byte) {
             Serial1.write(CMD_ACK);
             wdt_enable(WDTO_15MS);
             while (1);
+        case CMD_IDENT:
+            Serial1.write("rosco_m68k");
+            if (uart_mode) {
+                Serial1.write(IDENT_MODE_ASCII);
+            } else {
+                Serial1.write(IDENT_MODE_SCAN);
+            }
+            Serial1.write(KEY_COUNT);
+            Serial1.write(LED_COUNT);
+            Serial1.write(CAPABILITIES);
+            Serial1.write((uint8_t)0);
+            Serial1.write(CMD_ACK);
         default:
             Serial1.write(CMD_NAK);
         }
