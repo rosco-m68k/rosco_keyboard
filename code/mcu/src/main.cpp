@@ -110,7 +110,7 @@ const PROGMEM uint8_t col_pins[] = {
 const PROGMEM uint8_t uart_keys_nocaps_unshift[] = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 8,   0,
-    0,   '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',0,
+    0,   '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\r',0,
     0,   0,   'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'','\\',0,   0,
     0,   0,   '`', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
@@ -129,7 +129,7 @@ const PROGMEM uint8_t uart_keys_nocaps_unshift[] = {
 const PROGMEM uint8_t uart_keys_nocaps_shift[] = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 8,   0,
-    0,   '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',0,
+    0,   '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\r',0,
     0,   0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '|', 0,   0,
     0,   0,   '~', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
@@ -148,7 +148,7 @@ const PROGMEM uint8_t uart_keys_nocaps_shift[] = {
 const PROGMEM uint8_t uart_keys_caps_unshift[] = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 8,   0,
-    0,   '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'I', 'I', 'O', 'P', '[', ']', '\n',0,
+    0,   '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\r',0,
     0,   0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', '\'','\\',0,   0,
     0,   0,   '`', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
@@ -167,7 +167,7 @@ const PROGMEM uint8_t uart_keys_caps_unshift[] = {
 const PROGMEM uint8_t uart_keys_caps_shift[] = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 8,   0,
-    0,   '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', '\n',0,
+    0,   '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', '\r',0,
     0,   0,   'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ':', '"', '|', 0,   0,
     0,   0,   '~', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '<', '>', '?', 0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
@@ -186,7 +186,7 @@ const PROGMEM uint8_t uart_keys_caps_shift[] = {
 const PROGMEM uint8_t uart_keys_control[] = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   17,  23,  5,   18,  20,  25,  21, 9,   15,  16,  27,   0,   '\n',0,
+    0,   0,   17,  23,  5,   18,  20,  25,  21, 9,   15,  16,  27,   0,   '\r',0,
     0,   0,   1,   19,  4,   6,   7,   8,   10,  11,  12,  0,   0,   0,   0,   0,
     0,   0,   0,   26, 24,   3,   22,  2,   14,  13,  0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -295,7 +295,7 @@ static void process_command(int byte) {
             wdt_enable(WDTO_15MS);
             while (1);
         case CMD_IDENT:
-            Serial1.write("rosco_m68k");
+            Serial1.write("rosco_kbd");
             if (uart_mode) {
                 Serial1.write(IDENT_MODE_ASCII);
             } else {
@@ -304,6 +304,7 @@ static void process_command(int byte) {
             Serial1.write(KEY_COUNT);
             Serial1.write(LED_COUNT);
             Serial1.write(CAPABILITIES);
+            Serial1.write((uint8_t)0);
             Serial1.write((uint8_t)0);
             Serial1.write(CMD_ACK);
         default:
