@@ -1,8 +1,8 @@
 {
   "board": {
-    "active_layer": 36,
+    "active_layer": 0,
     "active_layer_preset": "",
-    "auto_track_width": false,
+    "auto_track_width": true,
     "hidden_netclasses": [],
     "hidden_nets": [],
     "high_contrast_mode": 0,
@@ -67,8 +67,8 @@
       39,
       40
     ],
-    "visible_layers": "fffffff_ffffffff",
-    "zone_display_mode": 1
+    "visible_layers": "fffffff_7fffffff",
+    "zone_display_mode": 0
   },
   "meta": {
     "filename": "rosco_m68k_keyboard-2.kicad_prl",
