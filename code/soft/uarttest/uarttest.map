@@ -22,6 +22,9 @@ Discarded input sections
  .text          0x0000000000000000        0x0 kmain.o
  .data          0x0000000000000000        0x0 kmain.o
  .bss           0x0000000000000000        0x0 kmain.o
+ .text          0x0000000000000000       0x90 buffer.o
+ .text          0x0000000000000000      0x128 interrupt.o
+ .bss           0x0000000000000000       0x62 interrupt.o
  .text          0x0000000000000000        0x0 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .data          0x0000000000000000        0x0 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .bss           0x0000000000000000        0x0 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
@@ -44,8 +47,6 @@ Discarded input sections
  .bss           0x0000000000000000        0x0 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
  .text.mcPrintln
                 0x0000000000000000       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
- .text.mcPrintchar
-                0x0000000000000000       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
  .text.mcSetcursor
                 0x0000000000000000        0xe /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
  .text.mcSendchar
@@ -64,8 +65,6 @@ Discarded input sections
                 0x0000000000000000       0x1e /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
  .text.mcHalt   0x0000000000000000        0x6 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
  .text.mcAddDevice
-                0x0000000000000000        0xe /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
- .text.mcCheckDevice
                 0x0000000000000000        0xe /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
  .text.mcDeviceCtrl
                 0x0000000000000000       0x32 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
@@ -160,108 +159,113 @@ Linker script and memory map
                 0x00000000000020c4                . = ALIGN (0x4)
                 0x00000000000020c4                _postinit_end = .
 
-.text           0x00000000000020c4     0x11cb load address 0x00000000000400c4
+.text           0x00000000000020c4     0x134e load address 0x00000000000400c4
                 0x00000000000020c4                _code = .
  *(.text*)
- .text.kmain    0x00000000000020c4      0x132 kmain.o
-                0x00000000000020c4                kmain
- *fill*         0x00000000000021f6        0x2 
- .text          0x00000000000021f8       0x90 buffer.o
-                0x00000000000021f8                duart_buffer_char
-                0x000000000000221a                duart_unbuffer
-                0x0000000000002252                duart_unbuffer_one
- .text          0x0000000000002288      0x128 interrupt.o
-                0x0000000000002288                duart_install_interrupt
-                0x0000000000002300                duart_remove_interrupt
+ .text.tryGetChar
+                0x00000000000020c4       0x54 kmain.o
+                0x00000000000020c4                tryGetChar
+ .text.detectKeyboard
+                0x0000000000002118      0x2b8 kmain.o
+                0x0000000000002118                detectKeyboard
+ .text.kmain    0x00000000000023d0      0x124 kmain.o
+                0x00000000000023d0                kmain
  .text._out_null
-                0x00000000000023b0        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x00000000000024f4        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .text._ntoa_long
-                0x00000000000023b2      0x488 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x00000000000024f6      0x488 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .text._out_char
-                0x000000000000283a       0x18 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x000000000000297e       0x18 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .text._vsnprintf
-                0x0000000000002852      0x7a8 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
- .text.printf_  0x0000000000002ffa       0x28 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
-                0x0000000000002ffa                printf_
+                0x0000000000002996      0x7a8 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+ .text.printf_  0x000000000000313e       0x28 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x000000000000313e                printf_
  .text._putchar
-                0x0000000000003022       0x42 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
-                0x0000000000003022                _putchar
- .text.mcPrint  0x0000000000003064       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
-                0x0000000000003064                mcPrint
+                0x0000000000003166       0x42 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+                0x0000000000003166                _putchar
+ .text.mcPrint  0x00000000000031a8       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x00000000000031a8                mcPrint
+ .text.mcPrintchar
+                0x00000000000031ba       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x00000000000031ba                mcPrintchar
  .text.mcCheckDeviceSupport
-                0x0000000000003076       0x16 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
-                0x0000000000003076                mcCheckDeviceSupport
+                0x00000000000031cc       0x16 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x00000000000031cc                mcCheckDeviceSupport
  .text.mcGetDeviceCount
-                0x000000000000308c        0xa /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
-                0x000000000000308c                mcGetDeviceCount
+                0x00000000000031e2        0xa /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x00000000000031e2                mcGetDeviceCount
  .text.mcGetDevice
-                0x0000000000003096       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
-                0x0000000000003096                mcGetDevice
+                0x00000000000031ec       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x00000000000031ec                mcGetDevice
+ .text.mcCheckDevice
+                0x00000000000031fe        0xe /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x00000000000031fe                mcCheckDevice
  .text.mcReadDevice
-                0x00000000000030a8        0xe /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
-                0x00000000000030a8                mcReadDevice
+                0x000000000000320c        0xe /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x000000000000320c                mcReadDevice
  .text.mcSendDevice
-                0x00000000000030b6       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
-                0x00000000000030b6                mcSendDevice
- .text.__kinit  0x00000000000030c8       0x2c /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
-                0x00000000000030c8                __kinit
+                0x000000000000321a       0x12 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libmachine.a(machine.o)
+                0x000000000000321a                mcSendDevice
+ .text.__kinit  0x000000000000322c       0x2c /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x000000000000322c                __kinit
  .text.__cxa_finalize
-                0x00000000000030f4       0x6c /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
-                0x00000000000030f4                __cxa_finalize
- .text          0x0000000000003160       0x5c /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
-                0x0000000000003160                __udivsi3
- .text          0x00000000000031bc       0x2e /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
-                0x00000000000031bc                __umodsi3
- *fill*         0x00000000000031ea        0x2 
- .text          0x00000000000031ec       0x22 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
-                0x00000000000031ec                __mulsi3
+                0x0000000000003258       0x6c /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x0000000000003258                __cxa_finalize
+ .text          0x00000000000032c4       0x5c /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
+                0x00000000000032c4                __udivsi3
+ .text          0x0000000000003320       0x2e /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
+                0x0000000000003320                __umodsi3
+ *fill*         0x000000000000334e        0x2 
+ .text          0x0000000000003350       0x22 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
+                0x0000000000003350                __mulsi3
  *(.rodata*)
  .rodata.kmain.str1.1
-                0x000000000000320e       0x81 kmain.o
-                0x000000000000328f                _code_end = .
-                0x0000000000003290                . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE))
+                0x0000000000003372       0xa0 kmain.o
+                0x0000000000003412                _code_end = .
+                0x0000000000003422                . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE))
 
-.ctors          0x0000000000003290        0x0
-                0x0000000000003290                _ctors = .
+.ctors          0x0000000000003424        0x0
+                0x0000000000003424                _ctors = .
  *(.ctors)
  *(SORT_BY_NAME(.ctors.*))
-                0x0000000000003290                _ctors_end = .
+                0x0000000000003424                _ctors_end = .
 
-.dtors          0x0000000000003290        0x0
-                0x0000000000003290                _dtors = .
+.dtors          0x0000000000003424        0x0
+                0x0000000000003424                _dtors = .
  *(SORT_BY_NAME(.dtors.*))
  *(.dtors)
-                0x0000000000003290                _dtors_end = .
+                0x0000000000003424                _dtors_end = .
 
-.data           0x0000000000003290        0x4 load address 0x0000000000041290
-                0x0000000000003290                _data_start = .
+.data           0x0000000000003424        0x8 load address 0x0000000000041424
+                0x0000000000003424                _data_start = .
  *(.data*)
- .data.crbuf    0x0000000000003290        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
-                0x0000000000003294                . = ALIGN (0x4)
- *fill*         0x0000000000003292        0x2 
-                0x0000000000003294                _data_end = .
+ .data.ticks    0x0000000000003424        0x4 kmain.o
+                0x0000000000003424                ticks
+ .data.crbuf    0x0000000000003428        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+                0x000000000000342c                . = ALIGN (0x4)
+ *fill*         0x000000000000342a        0x2 
+                0x000000000000342c                _data_end = .
 
-.bss            0x0000000000003294     0x3c94 load address 0x0000000000041294
-                0x0000000000003294                _bss_start = .
+.bss            0x000000000000342c     0x382c load address 0x000000000004142c
+                0x000000000000342c                _bss_start = .
  *(.bss*)
- .bss.buf       0x0000000000003294        0x1 kmain.o
-                0x0000000000003294                buf
- *fill*         0x0000000000003295        0x1 
- .bss.device    0x0000000000003296       0x20 kmain.o
- .bss.uart_b    0x00000000000032b6      0x406 kmain.o
- .bss           0x00000000000036bc       0x62 interrupt.o
- .bss.buf       0x000000000000371e        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
- .bss           0x0000000000003720        0x4 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(init.o)
+ .bss.step      0x000000000000342c        0x1 kmain.o
+                0x000000000000342c                step
+ .bss.buf       0x000000000000342d        0x1 kmain.o
+                0x000000000000342d                buf
+ .bss.device    0x000000000000342e       0x20 kmain.o
+ .bss.buf       0x000000000000344e        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+ .bss           0x0000000000003450        0x4 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(init.o)
  .bss.cxa_atexit_count
-                0x0000000000003724        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x0000000000003454        0x2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
  .bss.cxa_atexits
-                0x0000000000003726     0x3800 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x0000000000003456     0x3800 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
  *(COMMON)
-                0x0000000000006f28                . = ALIGN (0x4)
- *fill*         0x0000000000006f26        0x2 
-                0x0000000000006f28                _bss_end = .
-                0x0000000000006f28                . = DATA_SEGMENT_END (.)
-                0x0000000000006f28                _end = .
+                0x0000000000006c58                . = ALIGN (0x4)
+ *fill*         0x0000000000006c56        0x2 
+                0x0000000000006c58                _bss_end = .
+                0x0000000000006c58                . = DATA_SEGMENT_END (.)
+                0x0000000000006c58                _end = .
 LOAD kmain.o
 LOAD buffer.o
 LOAD interrupt.o
@@ -272,81 +276,81 @@ LOAD /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib
 LOAD /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a
 OUTPUT(uarttest.elf elf32-m68k)
 
-.debug_info     0x0000000000000000     0x13d5
- .debug_info    0x0000000000000000      0x36c kmain.o
- .debug_info    0x000000000000036c      0xca5 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
- .debug_info    0x0000000000001011      0x104 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
- .debug_info    0x0000000000001115      0x254 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
- .debug_info    0x0000000000001369       0x24 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
- .debug_info    0x000000000000138d       0x24 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
- .debug_info    0x00000000000013b1       0x24 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
+.debug_info     0x0000000000000000     0x16f0
+ .debug_info    0x0000000000000000      0x687 kmain.o
+ .debug_info    0x0000000000000687      0xca5 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+ .debug_info    0x000000000000132c      0x104 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+ .debug_info    0x0000000000001430      0x254 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+ .debug_info    0x0000000000001684       0x24 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
+ .debug_info    0x00000000000016a8       0x24 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
+ .debug_info    0x00000000000016cc       0x24 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
 
-.debug_abbrev   0x0000000000000000      0x78c
- .debug_abbrev  0x0000000000000000      0x1a3 kmain.o
- .debug_abbrev  0x00000000000001a3      0x363 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
- .debug_abbrev  0x0000000000000506       0xc2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
- .debug_abbrev  0x00000000000005c8      0x188 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
- .debug_abbrev  0x0000000000000750       0x14 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
- .debug_abbrev  0x0000000000000764       0x14 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
- .debug_abbrev  0x0000000000000778       0x14 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
+.debug_abbrev   0x0000000000000000      0x7e9
+ .debug_abbrev  0x0000000000000000      0x200 kmain.o
+ .debug_abbrev  0x0000000000000200      0x363 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+ .debug_abbrev  0x0000000000000563       0xc2 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+ .debug_abbrev  0x0000000000000625      0x188 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+ .debug_abbrev  0x00000000000007ad       0x14 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
+ .debug_abbrev  0x00000000000007c1       0x14 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
+ .debug_abbrev  0x00000000000007d5       0x14 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
 
 .debug_loclists
-                0x0000000000000000     0x1326
+                0x0000000000000000     0x1475
  .debug_loclists
-                0x0000000000000000       0x86 kmain.o
+                0x0000000000000000      0x1d5 kmain.o
  .debug_loclists
-                0x0000000000000086     0x11f5 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x00000000000001d5     0x11f5 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .debug_loclists
-                0x000000000000127b       0xab /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x00000000000013ca       0xab /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
 
-.debug_aranges  0x0000000000000000      0x148
+.debug_aranges  0x0000000000000000      0x158
  .debug_aranges
-                0x0000000000000000       0x20 kmain.o
+                0x0000000000000000       0x30 kmain.o
  .debug_aranges
-                0x0000000000000020       0x78 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x0000000000000030       0x78 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .debug_aranges
-                0x0000000000000098       0x20 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+                0x00000000000000a8       0x20 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
  .debug_aranges
-                0x00000000000000b8       0x30 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x00000000000000c8       0x30 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
  .debug_aranges
-                0x00000000000000e8       0x20 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
+                0x00000000000000f8       0x20 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
  .debug_aranges
-                0x0000000000000108       0x20 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
+                0x0000000000000118       0x20 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
  .debug_aranges
-                0x0000000000000128       0x20 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
+                0x0000000000000138       0x20 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
 
 .debug_rnglists
-                0x0000000000000000      0x24a
+                0x0000000000000000      0x263
  .debug_rnglists
-                0x0000000000000000       0x14 kmain.o
+                0x0000000000000000       0x2d kmain.o
  .debug_rnglists
-                0x0000000000000014      0x1ec /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+                0x000000000000002d      0x1ec /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
  .debug_rnglists
-                0x0000000000000200       0x13 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+                0x0000000000000219       0x13 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
  .debug_rnglists
-                0x0000000000000213       0x37 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+                0x000000000000022c       0x37 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
 
-.debug_line     0x0000000000000000     0x13d5
- .debug_line    0x0000000000000000      0x246 kmain.o
- .debug_line    0x0000000000000246      0xe5b /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
- .debug_line    0x00000000000010a1       0x9a /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
- .debug_line    0x000000000000113b      0x181 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
- .debug_line    0x00000000000012bc       0x6d /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
- .debug_line    0x0000000000001329       0x58 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
- .debug_line    0x0000000000001381       0x54 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
+.debug_line     0x0000000000000000     0x1726
+ .debug_line    0x0000000000000000      0x597 kmain.o
+ .debug_line    0x0000000000000597      0xe5b /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+ .debug_line    0x00000000000013f2       0x9a /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+ .debug_line    0x000000000000148c      0x181 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+ .debug_line    0x000000000000160d       0x6d /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
+ .debug_line    0x000000000000167a       0x58 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
+ .debug_line    0x00000000000016d2       0x54 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
 
-.debug_str      0x0000000000000000      0x5b1
- .debug_str     0x0000000000000000      0x26a kmain.o
-                                        0x2c5 (size before relaxing)
- .debug_str     0x000000000000026a      0x21a /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+.debug_str      0x0000000000000000      0x5ae
+ .debug_str     0x0000000000000000      0x267 kmain.o
+                                        0x2c2 (size before relaxing)
+ .debug_str     0x0000000000000267      0x21a /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
                                         0x2f9 (size before relaxing)
- .debug_str     0x0000000000000484       0x23 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+ .debug_str     0x0000000000000481       0x23 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
                                         0x175 (size before relaxing)
- .debug_str     0x00000000000004a7       0xa1 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+ .debug_str     0x00000000000004a4       0xa1 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
                                         0x22f (size before relaxing)
- .debug_str     0x0000000000000548       0x69 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
- .debug_str     0x00000000000005b1       0x69 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
- .debug_str     0x00000000000005b1       0x69 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
+ .debug_str     0x0000000000000545       0x69 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_udivsi3.o)
+ .debug_str     0x00000000000005ae       0x69 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_umodsi3.o)
+ .debug_str     0x00000000000005ae       0x69 /usr/local/Cellar/gcc-cross-m68k@11/11.2.0/lib/gcc/m68k-elf/11.2.0/m68000//libgcc.a(_mulsi3.o)
 
 .comment        0x0000000000000000       0x12
  .comment       0x0000000000000000       0x12 kmain.o
@@ -355,11 +359,11 @@ OUTPUT(uarttest.elf elf32-m68k)
  .comment       0x0000000000000012       0x13 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
  .comment       0x0000000000000012       0x13 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
 
-.debug_frame    0x0000000000000000      0x430
- .debug_frame   0x0000000000000000       0x94 kmain.o
- .debug_frame   0x0000000000000094      0x318 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
- .debug_frame   0x00000000000003ac       0x30 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
- .debug_frame   0x00000000000003dc       0x54 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
+.debug_frame    0x0000000000000000      0x518
+ .debug_frame   0x0000000000000000      0x17c kmain.o
+ .debug_frame   0x000000000000017c      0x318 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(printf-nofloat.o)
+ .debug_frame   0x0000000000000494       0x30 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libprintf.a(putchar.o)
+ .debug_frame   0x00000000000004c4       0x54 /Users/rosco/Development/rosco-m68k/rosco_m68k/code/software/libs/build/lib/libstart_serial.a(kinit.o)
 
 .debug_line_str
                 0x0000000000000000       0x34
