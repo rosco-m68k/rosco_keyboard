@@ -22,17 +22,21 @@
 #define ROW_COUNT           5
 #define COL_COUNT           15
 
-#define LED_OPORT           PORTE
-#define LED_DDR             DDRE
+#define LED_OPORT           PORTG
+#define LED_DDR             DDRG
 
-#define LED_POWRED          0x1
-#define LED_POWGRN          0x2
-#define LED_POWBLU          0x4
-#define LED_CAPS            0x8
-#define LED_DISK            0x10
-#define LED_EXTRED          0x20
-#define LED_EXTGRN          0x40
-#define LED_EXTBLU          0x80
+#define POW_OPORT           PORTE
+#define POW_DDR             DDRE
+
+#define POW_RED             0x08
+#define POW_GRN             0x10
+#define POW_BLU             0x20
+
+#define LED_CAPS            0x01
+#define LED_DISK            0x02
+#define LED_EXTRED          0x04
+#define LED_EXTGRN          0x08
+#define LED_EXTBLU          0x10
 
 #define DEBOUNCE_MILLIS     10
 #define ROW_SETTLE_DELAY    0
@@ -76,10 +80,8 @@
 // One mega64 we're using UART 1
 #define UART                Serial1
 
-#define UART_MODE_JP_O      PIN_PF7
-#define UART_MODE_JP_I      PIN_PD7
-#define UART_SPEED_JP_O     PIN_PF6
-#define UART_SPEED_JP_I     PIN_PD6
+#define UART_MODE_JP_I      PIN_PF7
+#define UART_SPEED_JP_I     PIN_PF6
 
 const PROGMEM uint8_t row_pins[] = {
     PIN_PB1,
@@ -252,6 +254,7 @@ static inline __attribute__((always_inline)) uint8_t keydown(int row, int col) {
     return 0x80 | keyup(row, col);
 }
 
+/* ** LEDs on LED Port ** */
 static inline __attribute__((always_inline)) void led_off(const uint8_t led_mask) {
     LED_OPORT |= led_mask;
 }
@@ -261,6 +264,23 @@ static inline __attribute__((always_inline)) void led_on(const uint8_t led_mask)
 }
 
 static inline __attribute__((always_inline)) void led_set(const uint8_t led_mask, uint8_t brightness) {
+    if (brightness) {
+        led_on(led_mask);
+    } else {
+        led_off(led_mask);
+    }
+}
+
+/* ** LEDs on POW Port ** */
+static inline __attribute__((always_inline)) void pow_off(const uint8_t led_mask) {
+    POW_OPORT |= led_mask;
+}
+
+static inline __attribute__((always_inline)) void pow_on(const uint8_t led_mask) {
+    POW_OPORT &= ~(led_mask);
+}
+
+static inline __attribute__((always_inline)) void pow_set(const uint8_t led_mask, uint8_t brightness) {
     if (brightness) {
         led_on(led_mask);
     } else {
@@ -288,39 +308,39 @@ static void process_command(int byte) {
         case CMD_RPT_DELAY_SET:
         case CMD_RPT_RATE_SET:
             current_command = byte;
-            Serial1.write(CMD_ACK);
+            UART.write(CMD_ACK);
             break;
         case CMD_RESET:
-            Serial1.write(CMD_ACK);
+            UART.write(CMD_ACK);
             wdt_enable(WDTO_15MS);
             while (1);
         case CMD_IDENT:
-            Serial1.write("rosco_kbd");
+            UART.write("rosco_kbd");
             if (uart_mode) {
-                Serial1.write(IDENT_MODE_ASCII);
+                UART.write(IDENT_MODE_ASCII);
             } else {
-                Serial1.write(IDENT_MODE_SCAN);
+                UART.write(IDENT_MODE_SCAN);
             }
-            Serial1.write(KEY_COUNT);
-            Serial1.write(LED_COUNT);
-            Serial1.write(CAPABILITIES);
-            Serial1.write((uint8_t)0);
-            Serial1.write((uint8_t)0);
-            Serial1.write(CMD_ACK);
+            UART.write(KEY_COUNT);
+            UART.write(LED_COUNT);
+            UART.write(CAPABILITIES);
+            UART.write((uint8_t)0);
+            UART.write((uint8_t)0);
+            UART.write(CMD_ACK);
         default:
-            Serial1.write(CMD_NAK);
+            UART.write(CMD_NAK);
         }
     } else {
         // operand
         switch (current_command) {
         case CMD_LED_POWRED:
-            led_set(LED_POWRED, byte);
+            pow_set(POW_RED, byte);
             break;
         case CMD_LED_POWGRN:
-            led_set(LED_POWGRN, byte);
+            pow_set(POW_GRN, byte);
             break;
         case CMD_LED_POWBLU:
-            led_set(LED_POWBLU, byte);
+            pow_set(POW_BLU, byte);
             break;
         case CMD_LED_CAPS:
             led_set(LED_CAPS, byte);
@@ -340,26 +360,26 @@ static void process_command(int byte) {
         case CMD_MODE_SET:
             if (byte == 0) {
                 uart_mode = false;
-                Serial1.write(CMD_ACK);
+                UART.write(CMD_ACK);
             } else {
                 uart_mode = true;
-                Serial1.write(CMD_ACK);
+                UART.write(CMD_ACK);
             }
             break;
         case CMD_RPT_DELAY_SET:
             repeat_delay = byte * 10;
-            Serial1.write(CMD_ACK);
+            UART.write(CMD_ACK);
             break;
         case CMD_RPT_RATE_SET:
             if (byte == 0) {
-                Serial1.write(CMD_NAK);
+                UART.write(CMD_NAK);
             } else {
                 repeat_rate_limit = (uint8_t)(256 - byte);
-                Serial1.write(CMD_ACK);
+                UART.write(CMD_ACK);
             }
             break;
         default:
-            Serial1.write(CMD_NAK);
+            UART.write(CMD_NAK);
         }
 
         current_command = 0;
@@ -633,22 +653,31 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
 }
 
 void setup(void) {
+    // LED port output, all off
+    POW_DDR = 0xff;
+    POW_OPORT = 0xff;
+    LED_DDR = 0xff;
+    LED_OPORT = 0xff;
+
     // Figure out which mode we're in
-    pinMode(UART_MODE_JP_O, OUTPUT);
     pinMode(UART_MODE_JP_I, INPUT_PULLUP);
-    digitalWrite(UART_MODE_JP_O, LOW);
     uart_mode = digitalRead(UART_MODE_JP_I) == LOW;
 
     // Figure out which speed we want
-    pinMode(UART_SPEED_JP_O, OUTPUT);
     pinMode(UART_SPEED_JP_I, INPUT_PULLUP);
-    digitalWrite(UART_SPEED_JP_O, LOW);
     
     if (digitalRead(UART_SPEED_JP_I) == LOW) {
         UART.begin(9600);
     } else {
         UART.begin(115200);
+        led_on(LED_DISK);
     }
+
+    if (uart_mode) {
+        led_on(LED_CAPS);
+    }
+
+    UART.println("WORKING");
 
     for (int r = 0; r < ROW_COUNT; r++) {
         for (int c = 0; c < COL_COUNT; c++) {
@@ -669,10 +698,6 @@ void setup(void) {
 
     // Restart after 1S unresponsive...
     wdt_enable(WDTO_1S);
-
-    // LED port output, all off
-    LED_DDR = 0xff;
-    LED_OPORT = 0xff;
 
     // default repeat
     repeat_delay = DEFAULT_RPT_DELAY;
