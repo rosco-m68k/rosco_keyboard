@@ -661,7 +661,7 @@ void setup(void) {
 
     // Figure out which mode we're in
     pinMode(UART_MODE_JP_I, INPUT_PULLUP);
-    uart_mode = digitalRead(UART_MODE_JP_I) == LOW;
+    uart_mode = digitalRead(UART_MODE_JP_I) == HIGH;
 
     // Figure out which speed we want
     pinMode(UART_SPEED_JP_I, INPUT_PULLUP);
