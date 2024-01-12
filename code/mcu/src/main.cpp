@@ -17,6 +17,7 @@
  */
 
 #include <Arduino.h>
+#include <SPI.h>
 #include <avr/wdt.h>
 
 #define ROW_COUNT           5
@@ -56,7 +57,10 @@
 #define CMD_MODE_SET        0x10
 #define CMD_RPT_DELAY_SET   0x11
 #define CMD_RPT_RATE_SET    0x12
-// 0x13 - 0xef reserved...
+// 0x13 - 0x1f reserved...
+#define CMD_SPI_SET         0x20
+#define CMD_SPI_XFER        0x21
+// 0x22 - 0xef reserved...
 #define CMD_IDENT           0xf0
 #define CMD_RESET           0xf1
 // 0xf2 - 0xff reserved...
@@ -88,7 +92,6 @@
 #define JP4_IN              PIN_PF3         // JP4
 #define JP5_IN              PIN_PF2         // JP5
 #define G_DISABLE_JP_I      PIN_PF1         // JP6
-
 
 const PROGMEM uint8_t row_pins[] = {
     PIN_PB1,
@@ -238,6 +241,12 @@ static unsigned long keys_t[ROW_COUNT][COL_COUNT];
 static bool keys_r[ROW_COUNT][COL_COUNT];
 
 static uint8_t current_command;
+static uint8_t spi_set_next_byte;
+
+static uint32_t spi_clock;
+static uint8_t spi_mode;
+static uint8_t spi_bitorder;
+
 static uint16_t repeat_delay;
 static uint8_t repeat_rate_limit;
 
@@ -316,7 +325,14 @@ static void process_command(int byte) {
         case CMD_MODE_SET:
         case CMD_RPT_DELAY_SET:
         case CMD_RPT_RATE_SET:
+        case CMD_SPI_XFER:
             current_command = byte;
+            M_UART.write(CMD_ACK);
+            break;
+        case CMD_SPI_SET:
+            current_command = byte;
+            spi_set_next_byte = 0;
+            spi_clock = 0;
             M_UART.write(CMD_ACK);
             break;
         case CMD_RESET:
@@ -344,27 +360,43 @@ static void process_command(int byte) {
         switch (current_command) {
         case CMD_LED_POWRED:
             pow_set(POW_RED, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_POWGRN:
             pow_set(POW_GRN, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_POWBLU:
             pow_set(POW_BLU, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_CAPS:
             led_set(LED_CAPS, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_DISK:
             led_set(LED_DISK, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_EXTRED:
             led_set(LED_EXTRED, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_EXTGRN:
             led_set(LED_EXTGRN, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_LED_EXTBLU:
             led_set(LED_EXTBLU, byte);
+            M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_MODE_SET:
             if (byte == 0) {
@@ -374,10 +406,12 @@ static void process_command(int byte) {
                 uart_mode = true;
                 M_UART.write(CMD_ACK);
             }
+            current_command = 0;
             break;
         case CMD_RPT_DELAY_SET:
             repeat_delay = byte * 10;
             M_UART.write(CMD_ACK);
+            current_command = 0;
             break;
         case CMD_RPT_RATE_SET:
             if (byte == 0) {
@@ -386,12 +420,50 @@ static void process_command(int byte) {
                 repeat_rate_limit = (uint8_t)(256 - byte);
                 M_UART.write(CMD_ACK);
             }
+            current_command = 0;
+            break;            
+        case CMD_SPI_SET:
+            switch (spi_set_next_byte) {
+            case 0:
+                spi_clock |= (((uint32_t)byte) << 24);
+                spi_set_next_byte++;
+                break;
+            case 1:
+                spi_clock |= (((uint32_t)byte) << 16);
+                spi_set_next_byte++;
+                break;
+            case 2:
+                spi_clock |= (((uint32_t)byte) << 8);
+                spi_set_next_byte++;
+                break;
+            case 3:
+                spi_clock |= byte;
+                spi_set_next_byte++;
+                break;
+            case 4:
+                spi_bitorder = byte;
+                spi_set_next_byte++;
+                break;
+            case 5:
+                spi_mode = byte;
+                M_UART.write(CMD_ACK);
+                current_command = 0;
+                break;
+            default:
+                M_UART.write(CMD_NAK);
+                current_command = 0;
+            }
             break;
+        case CMD_SPI_XFER:
+            SPI.beginTransaction(SPISettings(spi_clock, spi_bitorder, spi_mode));
+            M_UART.write(SPI.transfer(byte));
+            SPI.endTransaction();
+            M_UART.write(CMD_ACK);
+            current_command = 0;
         default:
             M_UART.write(CMD_NAK);
+            current_command = 0;
         }
-
-        current_command = 0;
     }
 }
 
@@ -723,6 +795,10 @@ void setup(void) {
             }
         }
 
+        // Start SPI
+        SPI.begin();
+
+        // Setup key matrix array
         for (int r = 0; r < ROW_COUNT; r++) {
             for (int c = 0; c < COL_COUNT; c++) {
                 keys[r][c] = 0;
@@ -730,12 +806,14 @@ void setup(void) {
             }
         }
 
+        // Set up row pins
         for (int i = 0; i < ROW_COUNT; i++) {
             uint8_t row_pin = pgm_read_byte_near(row_pins + i);
             pinMode(row_pin, OUTPUT);
             digitalWrite(row_pin, HIGH);
         }
 
+        // Set up column pins
         for (int i = 0; i < COL_COUNT; i++) {
             pinMode(pgm_read_byte_near(col_pins + i), INPUT_PULLUP);
         }
