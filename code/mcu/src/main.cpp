@@ -77,11 +77,18 @@
 #define IDENT_MODE_SCAN     ((uint8_t)0)
 #define IDENT_MODE_ASCII    ((uint8_t)1)
 
-// One mega64 we're using UART 1
-#define UART                Serial1
+// On mega64 we're using UART 1 as the main
+#define M_UART              Serial1
+// ... and UART 0 as the passthru
+#define PT_UART             Serial
 
-#define UART_MODE_JP_I      PIN_PF7
-#define UART_SPEED_JP_I     PIN_PF6
+#define UART_SPEED_JP_I     PIN_PF6         // JP1
+#define UART_MODE_JP_I      PIN_PF7         // JP2
+#define PASS_THRU_JP_I      PIN_PF4         // JP3
+#define JP4_IN              PIN_PF3         // JP4
+#define JP5_IN              PIN_PF2         // JP5
+#define G_DISABLE_JP_I      PIN_PF1         // JP6
+
 
 const PROGMEM uint8_t row_pins[] = {
     PIN_PB1,
@@ -234,7 +241,9 @@ static uint8_t current_command;
 static uint16_t repeat_delay;
 static uint8_t repeat_rate_limit;
 
+static bool global_disable;
 static bool uart_mode;
+static bool uart_passthru;
 static bool uart_caps;
 static bool uart_lshift;
 static bool uart_rshift;
@@ -308,27 +317,27 @@ static void process_command(int byte) {
         case CMD_RPT_DELAY_SET:
         case CMD_RPT_RATE_SET:
             current_command = byte;
-            UART.write(CMD_ACK);
+            M_UART.write(CMD_ACK);
             break;
         case CMD_RESET:
-            UART.write(CMD_ACK);
+            M_UART.write(CMD_ACK);
             wdt_enable(WDTO_15MS);
             while (1);
         case CMD_IDENT:
-            UART.write("rosco_kbd");
+            M_UART.write("rosco_kbd");
             if (uart_mode) {
-                UART.write(IDENT_MODE_ASCII);
+                M_UART.write(IDENT_MODE_ASCII);
             } else {
-                UART.write(IDENT_MODE_SCAN);
+                M_UART.write(IDENT_MODE_SCAN);
             }
-            UART.write(KEY_COUNT);
-            UART.write(LED_COUNT);
-            UART.write(CAPABILITIES);
-            UART.write((uint8_t)0);
-            UART.write((uint8_t)0);
-            UART.write(CMD_ACK);
+            M_UART.write(KEY_COUNT);
+            M_UART.write(LED_COUNT);
+            M_UART.write(CAPABILITIES);
+            M_UART.write((uint8_t)0);
+            M_UART.write((uint8_t)0);
+            M_UART.write(CMD_ACK);
         default:
-            UART.write(CMD_NAK);
+            M_UART.write(CMD_NAK);
         }
     } else {
         // operand
@@ -360,26 +369,26 @@ static void process_command(int byte) {
         case CMD_MODE_SET:
             if (byte == 0) {
                 uart_mode = false;
-                UART.write(CMD_ACK);
+                M_UART.write(CMD_ACK);
             } else {
                 uart_mode = true;
-                UART.write(CMD_ACK);
+                M_UART.write(CMD_ACK);
             }
             break;
         case CMD_RPT_DELAY_SET:
             repeat_delay = byte * 10;
-            UART.write(CMD_ACK);
+            M_UART.write(CMD_ACK);
             break;
         case CMD_RPT_RATE_SET:
             if (byte == 0) {
-                UART.write(CMD_NAK);
+                M_UART.write(CMD_NAK);
             } else {
                 repeat_rate_limit = (uint8_t)(256 - byte);
-                UART.write(CMD_ACK);
+                M_UART.write(CMD_ACK);
             }
             break;
         default:
-            UART.write(CMD_NAK);
+            M_UART.write(CMD_NAK);
         }
 
         current_command = 0;
@@ -510,7 +519,7 @@ static inline __attribute__((always_inline)) void uart_repeat_keypress(int row, 
         uint8_t ascii = uart_keybreak_code(code);
 
         if (ascii > 0) {
-            UART.write(ascii);
+            M_UART.write(ascii);
         }
     }
 }
@@ -528,6 +537,16 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
 #       endif
 
         for (int col = 0; col < COL_COUNT; col++) {
+            // Handle any passthru...
+            if (uart_passthru) {
+                while (PT_UART.available() > 0) {
+                    M_UART.write(PT_UART.read());
+                }
+                while (M_UART.available() > 0) {
+                    PT_UART.write(M_UART.read());
+                }
+            }
+
             uint8_t col_pin = pgm_read_byte_near(col_pins + col);
 
             if (now - keys_t[row][col] > DEBOUNCE_MILLIS) {
@@ -570,7 +589,7 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
                             uint8_t ascii = uart_keybreak_code(code);
 
                             if (ascii > 0) {
-                                UART.write(ascii);
+                                M_UART.write(ascii);
                             }
                         }
                     }
@@ -583,8 +602,10 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
     }
 
     // Any commands waiting?
-    while (UART.available()) {
-        process_command(UART.read());
+    if (!uart_passthru) {
+        while (M_UART.available()) {
+            process_command(M_UART.read());
+        }
     }
 }
 
@@ -601,6 +622,16 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
 #       endif
 
         for (int col = 0; col < COL_COUNT; col++) {
+            // Handle any passthru...
+            if (uart_passthru) {
+                while (PT_UART.available() > 0) {
+                    M_UART.write(PT_UART.read());
+                }
+                while (M_UART.available() > 0) {
+                    PT_UART.write(M_UART.read());
+                }
+            }
+
             uint8_t col_pin = pgm_read_byte_near(col_pins + col);
 
             if (now - keys_t[row][col] > DEBOUNCE_MILLIS) {
@@ -608,7 +639,7 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
                     if (!keys[row][col]) {
                         keys[row][col] = true;
                         keys_t[row][col] = now;
-                        UART.write(keydown(row, col));
+                        M_UART.write(keydown(row, col));
                     } else {
                         // key already down - are we repeating?
                         if (key_is_repeatable(keydown(row, col)) && repeat_delay > 0) {
@@ -616,14 +647,14 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
                                 // Already repeating - time for another break?
                                 if (now - keys_t[row][col] > repeat_rate_limit) {
                                     // yes - send it
-                                    UART.write(keyup(row, col));
+                                    M_UART.write(keyup(row, col));
                                     keys_t[row][col] = now;
                                 }
                             } else {
                                 // not repeating - time to start?
                                 if (now - keys_t[row][col] > repeat_delay) {
                                     // yes - start repeating
-                                    UART.write(keyup(row, col));
+                                    M_UART.write(keyup(row, col));
                                     keys_t[row][col] = now;
                                     keys_r[row][col] = true;
                                 }
@@ -636,7 +667,7 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
                         keys[row][col] = false;
                         keys_r[row][col] = false;
                         keys_t[row][col] = now;
-                        UART.write(keyup(row, col));
+                        M_UART.write(keyup(row, col));
                     }
                 }
             }
@@ -647,61 +678,84 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
     }
 
     // Any commands waiting?
-    while (UART.available()) {
-        process_command(UART.read());
+    if (!uart_passthru) {
+        while (M_UART.available()) {
+            process_command(M_UART.read());
+        }
     }
 }
 
 void setup(void) {
-    // LED port output, all off
-    POW_DDR = 0xff;
-    POW_OPORT = 0xff;
-    LED_DDR = 0xff;
-    LED_OPORT = 0xff;
+    // First, check global disable - if disabled, we don't touch any other pins...
+    pinMode(G_DISABLE_JP_I, INPUT_PULLUP);
+    global_disable = digitalRead(G_DISABLE_JP_I) == LOW;
 
-    // Figure out which mode we're in
-    pinMode(UART_MODE_JP_I, INPUT_PULLUP);
-    uart_mode = digitalRead(UART_MODE_JP_I) == HIGH;
+    if (!global_disable) {
+        // LED port output, all off
+        POW_DDR = 0xff;
+        POW_OPORT = 0xff;
+        LED_DDR = 0xff;
+        LED_OPORT = 0xff;
 
-    // Figure out which speed we want
-    pinMode(UART_SPEED_JP_I, INPUT_PULLUP);
-    
-    if (digitalRead(UART_SPEED_JP_I) == LOW) {
-        UART.begin(9600);
-    } else {
-        UART.begin(115200);
-    }
+        // Turn on power LED (green)
+        pow_on(POW_GRN);
+        
+        // Figure out which mode we're in
+        pinMode(UART_MODE_JP_I, INPUT_PULLUP);
+        uart_mode = digitalRead(UART_MODE_JP_I) == HIGH;
 
-    for (int r = 0; r < ROW_COUNT; r++) {
-        for (int c = 0; c < COL_COUNT; c++) {
-            keys[r][c] = 0;
-            keys_t[r][c] = 0;
+        // Figure out which speed we want, and should we enable pass-thru
+        pinMode(UART_SPEED_JP_I, INPUT_PULLUP);
+        pinMode(PASS_THRU_JP_I, INPUT_PULLUP);
+        if (digitalRead(UART_SPEED_JP_I) == LOW) {
+            M_UART.begin(9600);
+
+            if (digitalRead(PASS_THRU_JP_I) == LOW) {
+                uart_passthru = true;
+                PT_UART.begin(9600);
+            }
+        } else {
+            M_UART.begin(115200);
+
+            if (digitalRead(PASS_THRU_JP_I) == LOW) {
+                uart_passthru = true;
+                PT_UART.begin(115200);
+            }
         }
+
+        for (int r = 0; r < ROW_COUNT; r++) {
+            for (int c = 0; c < COL_COUNT; c++) {
+                keys[r][c] = 0;
+                keys_t[r][c] = 0;
+            }
+        }
+
+        for (int i = 0; i < ROW_COUNT; i++) {
+            uint8_t row_pin = pgm_read_byte_near(row_pins + i);
+            pinMode(row_pin, OUTPUT);
+            digitalWrite(row_pin, HIGH);
+        }
+
+        for (int i = 0; i < COL_COUNT; i++) {
+            pinMode(pgm_read_byte_near(col_pins + i), INPUT_PULLUP);
+        }
+
+        // Restart after 1S unresponsive...
+        wdt_enable(WDTO_1S);
+
+        // default repeat
+        repeat_delay = DEFAULT_RPT_DELAY;
+        repeat_rate_limit = DEFAULT_RATE_LIMIT;
     }
-
-    for (int i = 0; i < ROW_COUNT; i++) {
-        uint8_t row_pin = pgm_read_byte_near(row_pins + i);
-        pinMode(row_pin, OUTPUT);
-        digitalWrite(row_pin, HIGH);
-    }
-
-    for (int i = 0; i < COL_COUNT; i++) {
-        pinMode(pgm_read_byte_near(col_pins + i), INPUT_PULLUP);
-    }
-
-    // Restart after 1S unresponsive...
-    wdt_enable(WDTO_1S);
-
-    // default repeat
-    repeat_delay = DEFAULT_RPT_DELAY;
-    repeat_rate_limit = DEFAULT_RATE_LIMIT;
 }
 
 void loop(void) {
-    if (uart_mode) {
-        uart_loop();
-    } else {
-        scancode_loop();
+    if (!global_disable) {
+        if (uart_mode) {
+            uart_loop();
+        } else {
+            scancode_loop();
+        }
     }
 
     wdt_reset();
