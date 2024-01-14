@@ -26,7 +26,9 @@
  */
 
 #include <Arduino.h>
+#ifdef REVISION_2
 #include <SPI.h>
+#endif
 #include <PS2MouseHandler.h>
 #include <avr/wdt.h>
 
@@ -383,16 +385,24 @@ static void process_command(int byte) {
             M_UART.write(CMD_ACK);
             break;
         case CMD_MOUSE_DETECT:
-            if (!i2c_mode && have_mouse) {
+            if (!i2c_mode && !uart_mode && have_mouse) {
                 M_UART.write(CMD_ACK);
             } else {
                 M_UART.write(CMD_NAK);
             }
             break;
         case CMD_MOUSE_ENABLE:
-            if (!i2c_mode && !uart_mode && have_mouse) {
-                enable_mouse_reports = true;
-                M_UART.write(CMD_ACK);
+            if (!i2c_mode && !uart_mode) {
+                if (mouse.initialise() == 0) {  // 0 == ok, else timeout
+                    have_mouse = true;
+                    enable_mouse_reports = true;
+                    M_UART.write(CMD_ACK);
+                } else {
+                    // In case we're reinitializing after unplug and haven't noticed yet...
+                    have_mouse = false;
+                    enable_mouse_reports = false;
+                    M_UART.write(CMD_NAK);
+                }
             } else {
                 M_UART.write(CMD_NAK);
             }
@@ -675,7 +685,8 @@ static inline __attribute__((always_inline)) void service_spi(void) {
     }
 }
 #else
-#define service_spi(void)   0
+static inline __attribute__((always_inline)) void service_spi(void) {
+}
 #endif
 
 static inline __attribute__((always_inline)) void service_mouse(void) {
@@ -927,9 +938,6 @@ void setup(void) {
             // Mouse - always init even in UART mode, we just won't do anything
             // with it until switched to scan mode.
             i2c_mode = false;
-            if (mouse.initialise() == 0) {
-                have_mouse = true;
-            }
         }
 
         // Setup key matrix array

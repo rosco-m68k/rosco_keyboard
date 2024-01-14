@@ -3,6 +3,8 @@
 #include "HardwareSerial.h"
 #include "PS2MouseHandler.h"
 
+#define MOUSE_INIT_RETRIES    5
+
 PS2MouseHandler::PS2MouseHandler(int clock_pin, int data_pin, int mode) {
   _clock_pin = clock_pin;
   _data_pin = data_pin;
@@ -83,7 +85,7 @@ int PS2MouseHandler::initialise() {
   do {
     return_value = try_initialise();
     counter ++;
-  } while ((return_value != 0) && (counter < 10));
+  } while ((return_value != 0) && (counter < MOUSE_INIT_RETRIES));
   return return_value;
 }
 
