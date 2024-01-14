@@ -13,17 +13,21 @@
  *     ------|-----------------------|--------------------------------
  *     128   |  64   | 32    | 16    | 8     | 4     | 2     | 1
  * 
- * REVISION TWO:
- * 
- * Each byte received via the SPI interface will result in two scancode 
- * bytes, both identified as UP, column 7, with the low nibble containing
- * half of the received byte, e.g. 0b0111nnnn.
- *
  * Row and column are 1-based in this scheme.
+ * 
+ * Rows six and seven represent special things:
+ *
+ *      PS/2 Mouse - Packets always start with an "up" code for row 6, col 0
+ *                   Four bytes follow (containing an Intellimouse PS/2 packet)
+ *
+ *      SPI        - Each byte received via the SPI interface will result in two scancode
+ *                   bytes, both identified as UP, column 7, with the low nibble containing
+ *                   half of the received byte, e.g. 0b0111nnnn (REVISION 2 ONLY).
  */
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <PS2MouseHandler.h>
 #include <avr/wdt.h>
 
 #define ROW_COUNT           5
@@ -64,9 +68,15 @@
 #define CMD_RPT_DELAY_SET   0x11
 #define CMD_RPT_RATE_SET    0x12
 // 0x13 - 0x1f reserved...
-#define CMD_SPI_SET         0x20
-#define CMD_SPI_XFER        0x21
-// 0x22 - 0xef reserved...
+#define CMD_MOUSE_DETECT    0x20
+#define CMD_MOUSE_ENABLE    0x21
+#define CMD_MOUSE_DISABLE   0x22
+#ifdef REVISION_2
+// 0x23 - 0x2f reserved...
+#define CMD_SPI_ENABLE      0x30
+#define CMD_SPI_DISABLE     0x31
+#endif
+// 0x32 - 0xef reserved...
 #define CMD_IDENT           0xf0
 #define CMD_RESET           0xf1
 // 0xf2 - 0xff reserved...
@@ -81,8 +91,15 @@
 #define CAP_SPI             0x02
 #define CAP_I2C             0x04
 #define CAP_PWM             0x08
+#define CAP_PS2             0x10
 #define CAP_RESERVED        0x80    // Must never be set!
-#define CAPABILITIES        ((uint8_t)(CAP_KBD | CAP_SPI | CAP_I2C | CAP_PWM))
+
+// For these, I2C or PS2 are added later depending on jumper config...
+#ifdef REVISION_2
+#define CAPABILITIES        ((uint8_t)(CAP_KBD | CAP_SPI | CAP_PWM))
+#else
+#define CAPABILITIES        ((uint8_t)(CAP_KBD | CAP_SPI))
+#endif
 
 #define IDENT_MODE_SCAN     ((uint8_t)0)
 #define IDENT_MODE_ASCII    ((uint8_t)1)
@@ -95,12 +112,19 @@
 #define UART_SPEED_JP_I     PIN_PF6         // JP1
 #define UART_MODE_JP_I      PIN_PF7         // JP2
 #define PASS_THRU_JP_I      PIN_PF4         // JP3
-#define JP4_IN              PIN_PF3         // JP4
+#define I2C_JP_IN           PIN_PF3         // JP4
 #define JP5_IN              PIN_PF2         // JP5
 #define G_DISABLE_JP_I      PIN_PF1         // JP6
 
 #define SPI_BUF_SIZE        0x200
 #define SPI_BUF_MASK        ((SPI_BUF_SIZE-1))
+
+#define PS2_CLOCK           PD0
+#define PS2_DATA            PD1
+#define PS2_MOUSE_BTN_LEFT  0
+#define PS2_MOUSE_BTN_MID   0
+#define PS2_MOUSE_BTN_RIGHT 0
+#define PS2_PKT_START_CODE  0x60            // Scancode: Not down, row 6, col 0
 
 const PROGMEM uint8_t row_pins[] = {
 #ifdef REVISION_2
@@ -260,16 +284,12 @@ static unsigned long keys_t[ROW_COUNT][COL_COUNT];
 static bool keys_r[ROW_COUNT][COL_COUNT];
 
 static uint8_t current_command;
-static uint8_t spi_set_next_byte;
-
-static uint32_t spi_clock;
-static uint8_t spi_mode;
-static uint8_t spi_bitorder;
 
 static uint16_t repeat_delay;
 static uint8_t repeat_rate_limit;
 
 static bool global_disable;
+static bool i2c_mode;
 static bool uart_mode;
 static bool uart_passthru;
 static bool uart_caps;
@@ -283,10 +303,19 @@ static bool uart_option;
 static bool uart_lrosco;
 static bool uart_rrosco;
 
+static PS2MouseHandler mouse(PS2_CLOCK, PS2_DATA, PS2_MOUSE_REMOTE);
+static bool have_mouse;
+static bool enable_mouse_reports;
+static struct {
+    int x, y, z;
+    uint8_t s;
+} mouse_last;
+
 #ifdef REVISION_2
 static uint8_t spi_buf[512];
 volatile static uint16_t spi_ptr_r;
 volatile static uint16_t spi_ptr_w;
+static bool enable_spi_reports;
 #endif
 
 static inline __attribute__((always_inline)) uint8_t keyup(int row, int col) {
@@ -350,16 +379,42 @@ static void process_command(int byte) {
         case CMD_MODE_SET:
         case CMD_RPT_DELAY_SET:
         case CMD_RPT_RATE_SET:
-        case CMD_SPI_XFER:
             current_command = byte;
             M_UART.write(CMD_ACK);
             break;
-        case CMD_SPI_SET:
-            current_command = byte;
-            spi_set_next_byte = 0;
-            spi_clock = 0;
+        case CMD_MOUSE_DETECT:
+            if (!i2c_mode && have_mouse) {
+                M_UART.write(CMD_ACK);
+            } else {
+                M_UART.write(CMD_NAK);
+            }
+            break;
+        case CMD_MOUSE_ENABLE:
+            if (!i2c_mode && !uart_mode && have_mouse) {
+                enable_mouse_reports = true;
+                M_UART.write(CMD_ACK);
+            } else {
+                M_UART.write(CMD_NAK);
+            }
+            break;
+        case CMD_MOUSE_DISABLE:
+            enable_mouse_reports = false;
             M_UART.write(CMD_ACK);
             break;
+#ifdef REVISION_2
+        case CMD_SPI_ENABLE:
+            if (uart_mode) {
+                M_UART.write(CMD_NAK);
+            } else {
+                enable_spi_reports = true;
+                M_UART.write(CMD_ACK);
+            }
+            break;
+        case CMD_SPI_DISABLE:
+            enable_spi_reports = false;
+            M_UART.write(CMD_ACK);
+            break;
+#endif
         case CMD_RESET:
             M_UART.write(CMD_ACK);
             wdt_enable(WDTO_15MS);
@@ -373,7 +428,13 @@ static void process_command(int byte) {
             }
             M_UART.write(KEY_COUNT);
             M_UART.write(LED_COUNT);
-            M_UART.write(CAPABILITIES);
+
+            if (i2c_mode) {
+                M_UART.write(CAPABILITIES | CAP_I2C);
+            } else {
+                M_UART.write(CAPABILITIES | CAP_PS2);
+            }
+
             M_UART.write((uint8_t)0);
             M_UART.write((uint8_t)0);
             M_UART.write(CMD_ACK);
@@ -447,44 +508,6 @@ static void process_command(int byte) {
             }
             current_command = 0;
             break;            
-        case CMD_SPI_SET:
-            switch (spi_set_next_byte) {
-            case 0:
-                spi_clock |= (((uint32_t)byte) << 24);
-                spi_set_next_byte++;
-                break;
-            case 1:
-                spi_clock |= (((uint32_t)byte) << 16);
-                spi_set_next_byte++;
-                break;
-            case 2:
-                spi_clock |= (((uint32_t)byte) << 8);
-                spi_set_next_byte++;
-                break;
-            case 3:
-                spi_clock |= byte;
-                spi_set_next_byte++;
-                break;
-            case 4:
-                spi_bitorder = byte;
-                spi_set_next_byte++;
-                break;
-            case 5:
-                spi_mode = byte;
-                M_UART.write(CMD_ACK);
-                current_command = 0;
-                break;
-            default:
-                M_UART.write(CMD_NAK);
-                current_command = 0;
-            }
-            break;
-        case CMD_SPI_XFER:
-            SPI.beginTransaction(SPISettings(spi_clock, spi_bitorder, spi_mode));
-            M_UART.write(SPI.transfer(byte));
-            SPI.endTransaction();
-            M_UART.write(CMD_ACK);
-            current_command = 0;
         default:
             M_UART.write(CMD_NAK);
             current_command = 0;
@@ -644,7 +667,7 @@ static inline __attribute__((always_inline)) void service_spi(void) {
     // in that case which isn't any better (I'd actually argue worse since 
     // probably more likely...)
     //
-    if (!uart_mode && spi_ptr_r != spi_ptr_w) {
+    if (!uart_mode && enable_spi_reports && spi_ptr_r != spi_ptr_w) {
         unsigned char c = spi_buf[spi_ptr_r++];
         spi_ptr_r &= SPI_BUF_MASK;
         M_UART.write(0x7 | (c & 0xF0) >> 4);
@@ -654,6 +677,42 @@ static inline __attribute__((always_inline)) void service_spi(void) {
 #else
 #define service_spi(void)   0
 #endif
+
+static inline __attribute__((always_inline)) void service_mouse(void) {
+    if (!uart_mode && enable_mouse_reports) {      // only works in scancode mode...
+                                                   // enable_mouse_reports can only be true
+                                                   // if we have a mouse and are not in i2c mode
+                                                   // because we check in the command handler 🙂
+
+        if (!mouse.get_data()) {
+            // Fail fast and disable mouse reporting if we timed out,
+            // to avoid degrading keyboard experience...
+            //
+            // Software can try to re-enable if it likes...
+            enable_mouse_reports = false;
+            return;
+        }
+
+        uint8_t s = mouse.status();
+        int x = mouse.x_movement();
+        int y = mouse.y_movement();
+        int z = mouse.z_movement();
+
+        if (x != mouse_last.x || y != mouse_last.y || z != mouse_last.z || s != mouse_last.s) {
+            // send report
+            M_UART.write(PS2_PKT_START_CODE);
+            M_UART.write(s);
+            M_UART.write((uint8_t)abs(x));      // Sign/overflow represented in status....
+            M_UART.write((uint8_t)abs(y));
+            M_UART.write((uint8_t)abs(z));
+
+            mouse_last.x = x;
+            mouse_last.y = y;
+            mouse_last.z = z;
+            mouse_last.s = s;
+        }
+    }
+}
 
 static inline __attribute__((always_inline)) void uart_loop(void) {
     unsigned long now = millis();
@@ -730,17 +789,10 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
 
         digitalWrite(row_pin, HIGH);
         pinMode(row_pin, INPUT);
-    }
 
-    // Any commands waiting?
-    if (!uart_passthru) {
-        while (M_UART.available()) {
-            process_command(M_UART.read());
-        }
+        // Does SPI need anything? - check after each row to make overrun less likely
+        service_spi();
     }
-
-    // Does SPI need anything?
-    service_spi();
 }
 
 static inline __attribute__((always_inline)) void scancode_loop(void) {
@@ -809,17 +861,10 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
 
         digitalWrite(row_pin, HIGH);
         pinMode(row_pin, INPUT);
-    }
 
-    // Any commands waiting?
-    if (!uart_passthru) {
-        while (M_UART.available()) {
-            process_command(M_UART.read());
-        }
+        // Does SPI need anything? - check after each row to make overrun less likely
+        service_spi();
     }
-
-    // Does SPI need anything?
-    service_spi();
 }
 
 void setup(void) {
@@ -836,7 +881,10 @@ void setup(void) {
 
         // Turn on power LED (green)
         pow_on(POW_GRN);
-        
+
+        // And disk LED while we do init...
+        led_on(LED_DISK);
+
         // Figure out which mode we're in
         pinMode(UART_MODE_JP_I, INPUT_PULLUP);
         uart_mode = digitalRead(UART_MODE_JP_I) == HIGH;
@@ -861,14 +909,28 @@ void setup(void) {
         }
 
 #ifdef REVISION_2
-        // Setup as SPI slave if not in UART mode
-        if (!uart_mode) {
-            M_UART.print("Setting up SPI...\n");
-            pinMode(MISO, OUTPUT);
-            SPCR |= _BV(SPE);
-            SPCR |= _BV(SPIE);
+        // Setup as SPI slave
+        M_UART.print("Setting up SPI...\n");
+        pinMode(MISO, OUTPUT);
+        SPCR |= _BV(SPE);
+        SPCR |= _BV(SPIE);
         }
 #endif
+
+        // Do we want PS/2 or I2C?
+        if (digitalRead(I2C_JP_IN) == HIGH) {
+            // I2C...
+            i2c_mode = true;
+
+            // TODO not implemented...
+        } else {
+            // Mouse - always init even in UART mode, we just won't do anything
+            // with it until switched to scan mode.
+            i2c_mode = false;
+            if (mouse.initialise() == 0) {
+                have_mouse = true;
+            }
+        }
 
         // Setup key matrix array
         for (int r = 0; r < ROW_COUNT; r++) {
@@ -890,13 +952,16 @@ void setup(void) {
             pinMode(pgm_read_byte_near(col_pins + i), INPUT_PULLUP);
         }
 
-        // Restart after 1S unresponsive...
-        wdt_enable(WDTO_1S);
-
         // default repeat
         repeat_delay = DEFAULT_RPT_DELAY;
         repeat_rate_limit = DEFAULT_RATE_LIMIT;
+
+        // Init done...
+        led_off(LED_DISK);
     }
+
+    // Restart after 1S unresponsive...
+    wdt_enable(WDTO_1S);
 }
 
 void loop(void) {
@@ -906,6 +971,16 @@ void loop(void) {
         } else {
             scancode_loop();
         }
+
+        // Any commands waiting?
+        if (!uart_passthru) {
+            while (M_UART.available()) {
+                process_command(M_UART.read());
+            }
+        }
+
+        // Anything happening with the mouse?
+        service_mouse();
     }
 
     wdt_reset();
