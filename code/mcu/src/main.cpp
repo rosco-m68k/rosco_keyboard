@@ -12,6 +12,12 @@
  *     1     | 1     | 1     | 1     | 1     | 1     | 1     | 1
  *     ------|-----------------------|--------------------------------
  *     128   |  64   | 32    | 16    | 8     | 4     | 2     | 1
+ * 
+ * REVISION TWO:
+ * 
+ * Each byte received via the SPI interface will result in two scancode 
+ * bytes, both identified as UP, column 7, with the low nibble containing
+ * half of the received byte, e.g. 0b0111nnnn.
  *
  * Row and column are 1-based in this scheme.
  */
@@ -93,9 +99,17 @@
 #define JP5_IN              PIN_PF2         // JP5
 #define G_DISABLE_JP_I      PIN_PF1         // JP6
 
+#define SPI_BUF_SIZE        0x200
+#define SPI_BUF_MASK        ((SPI_BUF_SIZE-1))
+
 const PROGMEM uint8_t row_pins[] = {
+#ifdef REVISION_2
+    PIN_PC5,
+    PIN_PC4,
+#else
     PIN_PB1,
     PIN_PB0,
+#endif
     PIN_PA6,
     PIN_PA5,
     PIN_PA4,
@@ -107,8 +121,13 @@ const PROGMEM uint8_t col_pins[] = {
     PIN_PA2,
     PIN_PA3,
     PIN_PA7,
+#ifdef REVISION_2
+    PIN_PC6,
+    PIN_PC7,
+#else
     PIN_PB2,
     PIN_PB3,
+#endif
     PIN_PB4,
     PIN_PB5,
     PIN_PB7,
@@ -198,8 +217,8 @@ const PROGMEM uint8_t uart_keys_caps_shift[] = {
 const PROGMEM uint8_t uart_keys_control[] = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   17,  23,  5,   18,  20,  25,  21, 9,   15,  16,  27,   0,   '\r',0,
-    0,   0,   1,   19,  4,   6,   7,   8,   10,  11,  12,  0,   0,   0,   0,   0,
+    0,   0,   17,  23,  5,   18,  20,  25,  21, 9,   15,  16,  27,   0,   0,   0,
+    0,   0,   1,   19,  4,   6,   7,   8,   10,  11,  12,  0,   0,   0,   '\r',0,
     0,   0,   0,   26, 24,   3,   22,  2,   14,  13,  0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -263,6 +282,12 @@ static bool uart_rcmd;
 static bool uart_option;
 static bool uart_lrosco;
 static bool uart_rrosco;
+
+#ifdef REVISION_2
+static uint8_t spi_buf[512];
+volatile static uint16_t spi_ptr_r;
+volatile static uint16_t spi_ptr_w;
+#endif
 
 static inline __attribute__((always_inline)) uint8_t keyup(int row, int col) {
     return (row + 1) << 4 | (col + 1);
@@ -596,6 +621,40 @@ static inline __attribute__((always_inline)) void uart_repeat_keypress(int row, 
     }
 }
 
+#ifdef REVISION_2
+/*
+ * SPI ISR
+ */
+ISR(SPI_STC_vect) {
+    unsigned char c = SPDR;
+
+    spi_buf[spi_ptr_w++] = c;
+    spi_ptr_w &= SPI_BUF_MASK;
+}
+
+static inline __attribute__((always_inline)) void service_spi(void) {
+    // Only sending one byte per call rather than emptying the buffer.
+    // Since this is called in the matrix scan loop, this means we 
+    // will keep servicing SPI without letting it overrun the whole 
+    // system...
+    //
+    // We don't need to disable interrupts because of the circular buffer,
+    // it's possible (but unlikely) we can miss data if the buffer overruns - 
+    // disabling interrupts wouldn't help - we'd just miss it altogether
+    // in that case which isn't any better (I'd actually argue worse since 
+    // probably more likely...)
+    //
+    if (!uart_mode && spi_ptr_r != spi_ptr_w) {
+        unsigned char c = spi_buf[spi_ptr_r++];
+        spi_ptr_r &= SPI_BUF_MASK;
+        M_UART.write(0x7 | (c & 0xF0) >> 4);
+        M_UART.write(0x7 | c & 0x0F);
+    }
+}
+#else
+#define service_spi(void)   0
+#endif
+
 static inline __attribute__((always_inline)) void uart_loop(void) {
     unsigned long now = millis();
 
@@ -679,6 +738,9 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
             process_command(M_UART.read());
         }
     }
+
+    // Does SPI need anything?
+    service_spi();
 }
 
 static inline __attribute__((always_inline)) void scancode_loop(void) {
@@ -755,6 +817,9 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
             process_command(M_UART.read());
         }
     }
+
+    // Does SPI need anything?
+    service_spi();
 }
 
 void setup(void) {
@@ -795,8 +860,15 @@ void setup(void) {
             }
         }
 
-        // Start SPI
-        SPI.begin();
+#ifdef REVISION_2
+        // Setup as SPI slave if not in UART mode
+        if (!uart_mode) {
+            M_UART.print("Setting up SPI...\n");
+            pinMode(MISO, OUTPUT);
+            SPCR |= _BV(SPE);
+            SPCR |= _BV(SPIE);
+        }
+#endif
 
         // Setup key matrix array
         for (int r = 0; r < ROW_COUNT; r++) {
