@@ -1,7 +1,7 @@
 /*
  * rosco_m68k keyboard microcontroller code
  *
- * Copyright (c)2023 The Really Old-School Company Limited
+ * Copyright (c)2023-2024 The Really Old-School Company Limited
  *
  * Closed source; Not for distribution.
  * 
@@ -127,6 +127,8 @@
 #define PS2_MOUSE_BTN_MID   0
 #define PS2_MOUSE_BTN_RIGHT 0
 #define PS2_PKT_START_CODE  0x60            // Scancode: Not down, row 6, col 0
+
+#define CAPS_WORD_FLASH_D   300
 
 const PROGMEM uint8_t row_pins[] = {
 #ifdef REVISION_2
@@ -270,16 +272,16 @@ const PROGMEM uint8_t uart_keys_control[] = {
 #define ROSCO_RIGHT_CODE_U  0x5b
 #define OPTION_CODE_U       0x5d
 
-#define CAPS_CODE_D         CAPS_CODE_U         | 0x80
-#define SHIFT_LEFT_CODE_D   SHIFT_LEFT_CODE_U   | 0x80
-#define SHIFT_RIGHT_CODE_D  SHIFT_RIGHT_CODE_U  | 0x80
-#define CTRL_LEFT_CODE_D    CTRL_LEFT_CODE_U    | 0x80
-#define CTRL_RIGHT_CODE_D   CTRL_RIGHT_CODE_U   | 0x80
-#define CMD_LEFT_CODE_D     CMD_LEFT_CODE_U     | 0x80
-#define CMD_RIGHT_CODE_D    CMD_RIGHT_CODE_U    | 0x80
-#define ROSCO_LEFT_CODE_D   ROSCO_LEFT_CODE_U   | 0x80
-#define ROSCO_RIGHT_CODE_D  ROSCO_RIGHT_CODE_U  | 0x80
-#define OPTION_CODE_D       OPTION_CODE_U       | 0x80
+#define CAPS_CODE_D         ((CAPS_CODE_U         | 0x80))
+#define SHIFT_LEFT_CODE_D   ((SHIFT_LEFT_CODE_U   | 0x80))
+#define SHIFT_RIGHT_CODE_D  ((SHIFT_RIGHT_CODE_U  | 0x80))
+#define CTRL_LEFT_CODE_D    ((CTRL_LEFT_CODE_U    | 0x80))
+#define CTRL_RIGHT_CODE_D   ((CTRL_RIGHT_CODE_U   | 0x80))
+#define CMD_LEFT_CODE_D     ((CMD_LEFT_CODE_U     | 0x80))
+#define CMD_RIGHT_CODE_D    ((CMD_RIGHT_CODE_U    | 0x80))
+#define ROSCO_LEFT_CODE_D   ((ROSCO_LEFT_CODE_U   | 0x80))
+#define ROSCO_RIGHT_CODE_D  ((ROSCO_RIGHT_CODE_U  | 0x80))
+#define OPTION_CODE_D       ((OPTION_CODE_U       | 0x80))
 
 static bool keys[ROW_COUNT][COL_COUNT];
 static unsigned long keys_t[ROW_COUNT][COL_COUNT];
@@ -295,6 +297,9 @@ static bool i2c_mode;
 static bool uart_mode;
 static bool uart_passthru;
 static bool uart_caps;
+static bool uart_caps_word;
+static bool uart_caps_led_on;
+static long uart_caps_word_flash_last;
 static bool uart_lshift;
 static bool uart_rshift;
 static bool uart_lctrl;
@@ -471,6 +476,7 @@ static void process_command(int byte) {
             break;
         case CMD_LED_CAPS:
             led_set(LED_CAPS, byte);
+            uart_caps_led_on = byte > 0;
             M_UART.write(CMD_ACK);
             current_command = 0;
             break;
@@ -553,13 +559,73 @@ static inline __attribute__((always_inline)) bool key_is_repeatable(uint8_t key)
     return true;
 }
 
+static inline __attribute__((always_inline)) bool is_ascii_word_terminator(uint8_t ascii) {
+    // A word about the logic for choosing these... 
+    //
+    // Most of the choices here are obvious. However, there are a few that maybe aren't:
+    //
+    // Double-quotes aren't considered word endings. If they _do_ end a word, they'll 
+    // usually be followed by a space or some other word-ending anyhow. And I expect it's
+    // common to start caps-word mode _before_ you type the _opening_ quote, which would
+    // then immediately get cancelled. Backticks follow the same logic (as do single-quotes,
+    // but they're already apostophes anyway so wouldn't have been word endings).
+    //
+    // Same deal for the opening brackets (though in those cases, we _do_ have separate
+    // open/close characters, so we can differentiate - this is inconsistent, but I think
+    // will probably be "least surprising"...)
+    //
+    // - and _ aren't word endings either, both because I'm a programmer, and because
+    // they aren't word endings IRL either...
+    //
+    switch (ascii) {
+    case ' ':
+    case '!':
+    case '@':
+    case '#':
+    case '$':
+    case '%':
+    case '^':
+    case '&':
+    case '*':
+    case ')':
+    case '=':
+    case '+':
+    case ']':
+    case '}':
+    case ';':
+    case ':':
+    case '\\':
+    case '|':
+    case ',':
+    case '<':
+    case '.':
+    case '>':
+    case '/':
+    case '?':
+    case '~':
+        return true;
+    }
+
+    return false;
+}
+
 static inline __attribute__((always_inline)) bool uart_process_special(uint8_t key) {
     switch (key) {
     case CAPS_CODE_U:
-        if ((uart_caps = !uart_caps)) {
+        if (uart_caps_word) {
+            // always turn caps word into lock
+            uart_caps_word = false;
+            uart_caps = true;
             led_set(LED_CAPS, 255);
+            uart_caps_led_on = true;
         } else {
-            led_set(LED_CAPS, 0);
+            if ((uart_caps = !uart_caps)) {
+                led_set(LED_CAPS, 255);
+                uart_caps_led_on = true;
+            } else {
+                led_set(LED_CAPS, 0);
+                uart_caps_led_on = false;
+            }
         }
 
         return true;
@@ -625,7 +691,7 @@ static inline __attribute__((always_inline)) bool uart_process_special(uint8_t k
 static inline __attribute__((always_inline)) uint8_t uart_keybreak_code(uint8_t code) {
     if (uart_lctrl || uart_rctrl) {
         return pgm_read_byte_near(uart_keys_control + code);
-    } else if (uart_caps) {
+    } else if (uart_caps || uart_caps_word) {
         if (uart_lshift || uart_rshift) {
             return pgm_read_byte_near(uart_keys_caps_shift + code);
         } else {
@@ -725,6 +791,9 @@ static inline __attribute__((always_inline)) void service_mouse(void) {
     }
 }
 
+// MY GOD THIS NEEDS BREAKING UP AND REFACTORING!! 😧 
+//        - @roscopeco 2024-01-14
+//
 static inline __attribute__((always_inline)) void uart_loop(void) {
     unsigned long now = millis();
 
@@ -756,7 +825,58 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
                         keys[row][col] = true;
                         keys_t[row][col] = now;
 
-                        uart_process_special(keydown(row, col));
+                        uint8_t code = keydown(row, col);
+                        if (uart_process_special(code)) {
+                            // Special handling for caps-word
+                            if (code == SHIFT_LEFT_CODE_D) {
+                                if (uart_rshift) {
+                                    if (uart_caps_word) {
+                                        // cancel caps word
+                                        uart_caps_word = false;
+                                        uart_caps = false;
+                                        uart_caps_led_on = false;
+                                        led_off(LED_CAPS);
+                                    } else {
+                                        // enable caps word
+                                        if (uart_caps_led_on) { // Immediate flash start!
+                                            led_off(LED_CAPS);  // start off if already on
+                                            uart_caps_led_on = false;
+                                        } else {
+                                            led_on(LED_CAPS);   // and vice versa
+                                            uart_caps_led_on = true;
+                                        }
+
+                                        uart_caps_word = true;                                    
+                                        uart_caps = false;
+                                        uart_caps_word_flash_last = now;
+                                    }
+                                }
+                            } else if (code == SHIFT_RIGHT_CODE_D) {
+                                if (uart_lshift) {
+                                    if (uart_caps_word) {
+                                        // cancel caps word
+                                        uart_caps_word = false;
+                                        uart_caps = false;
+                                        uart_caps_led_on = false;
+                                        led_off(LED_CAPS);
+                                    } else {
+                                        // enable caps word
+                                        if (uart_caps_led_on) { // Immediate flash start!
+                                            led_off(LED_CAPS);  // start off if already on
+                                            uart_caps_led_on = false;
+                                        } else {
+                                            led_on(LED_CAPS);   // and vice versa
+                                            uart_caps_led_on = true;
+                                        }
+
+                                        uart_caps_word = true;                                    
+                                        uart_caps = false;
+                                        led_on(LED_CAPS);
+                                        uart_caps_word_flash_last = now;
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         // key already down - are we repeating?
                         if (repeat_delay > 0) {
@@ -792,6 +912,13 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
                             if (ascii > 0) {
                                 M_UART.write(ascii);
                             }
+
+                            // Cancel caps word?
+                            if (uart_caps_word && is_ascii_word_terminator(ascii)) {
+                                uart_caps_word = false;
+                                uart_caps_led_on = false;
+                                led_off(LED_CAPS);
+                            }
                         }
                     }
                 }
@@ -800,6 +927,22 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
 
         digitalWrite(row_pin, HIGH);
         pinMode(row_pin, INPUT);
+
+        // Check caps word flash
+        if (uart_caps_word) {
+            if (now - uart_caps_word_flash_last > CAPS_WORD_FLASH_D) {
+                // Time to switch
+                if (uart_caps_led_on) {
+                    led_off(LED_CAPS);
+                    uart_caps_led_on = false;
+                } else {
+                    led_on(LED_CAPS);
+                    uart_caps_led_on = true;
+                }
+
+                uart_caps_word_flash_last = now;
+            }
+        }
 
         // Does SPI need anything? - check after each row to make overrun less likely
         service_spi();
