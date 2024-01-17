@@ -86,6 +86,10 @@
 #define CMD_ACK             ((uint8_t)0xff)
 #define CMD_NAK             ((uint8_t)0x0)
 
+// Modes 2..127 reserved, 128+ allowed for third-party modes
+#define CMD_MODE_SCAN       ((0))
+#define CMD_MODE_ASCII      ((1))
+
 #define KEY_COUNT           ((uint8_t)67)
 #define LED_COUNT           ((uint8_t)8)
 
@@ -501,12 +505,14 @@ static void process_command(int byte) {
             current_command = 0;
             break;
         case CMD_MODE_SET:
-            if (byte == 0) {
+            if (byte == CMD_MODE_SCAN) {
                 uart_mode = false;
                 M_UART.write(CMD_ACK);
-            } else {
+            } else if (byte == CMD_MODE_ASCII) {
                 uart_mode = true;
                 M_UART.write(CMD_ACK);
+            } else {
+                M_UART.write(CMD_NAK);
             }
             current_command = 0;
             break;
