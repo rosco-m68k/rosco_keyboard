@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <avr/wdt.h>
 
 #include "HardwareSerial.h"
 #include "PS2MouseHandler.h"
@@ -211,6 +212,7 @@ void PS2MouseHandler::write(int data) {
   char i;
   char parity = 1;
   unsigned long start_time = millis();
+  wdt_reset();
   pull_high(_data_pin);
   pull_high(_clock_pin);
   delayMicroseconds(300);
@@ -282,6 +284,8 @@ bool PS2MouseHandler::get_data() {
   else {
     _z_movement = 0;
   };
+
+  return true;
 }
 
 uint8_t PS2MouseHandler::read() {

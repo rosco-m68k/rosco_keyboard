@@ -125,8 +125,8 @@
 #define SPI_BUF_SIZE        0x200
 #define SPI_BUF_MASK        ((SPI_BUF_SIZE-1))
 
-#define PS2_CLOCK           PD0
-#define PS2_DATA            PD1
+#define PS2_CLOCK           PIN_PD0
+#define PS2_DATA            PIN_PD1
 #define PS2_MOUSE_BTN_LEFT  0
 #define PS2_MOUSE_BTN_MID   0
 #define PS2_MOUSE_BTN_RIGHT 0
@@ -457,6 +457,7 @@ static void process_command(int byte) {
             M_UART.write((uint8_t)0);
             M_UART.write((uint8_t)0);
             M_UART.write(CMD_ACK);
+            break;
         default:
             M_UART.write(CMD_NAK);
         }
@@ -1084,8 +1085,7 @@ void setup(void) {
 
             // TODO not implemented...
         } else {
-            // Mouse - always init even in UART mode, we just won't do anything
-            // with it until switched to scan mode.
+            // Mouse...
             i2c_mode = false;
         }
 
