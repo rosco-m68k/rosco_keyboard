@@ -80,5 +80,7 @@ R4,1k,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,73.583,-102.1935,0.0,bottom
 R5,2k2,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,73.583,-87.2951,0.0,bottom
 R6,820R,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,73.583,-92.2612,0.0,bottom
 R7,1k2,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,73.583,-97.2273,0.0,bottom
+R8,5.1K,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,298.2,-90.2,0.0,bottom
+R9,5.1K,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,283.6,-87.7,0.0,bottom
 U1,ATmega64A-A,TQFP-64_14x14mm_P0.8mm,137.439,-97.6545,0.0,bottom
 Y1,Crystal,Crystal_SMD_5032-2Pin_5.0x3.2mm_HandSoldering,137.7914,-111.4251,180.0,bottom
