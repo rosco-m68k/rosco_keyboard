@@ -365,9 +365,9 @@ static inline __attribute__((always_inline)) void pow_on(const uint8_t led_mask)
 
 static inline __attribute__((always_inline)) void pow_set(const uint8_t led_mask, uint8_t brightness) {
     if (brightness) {
-        led_on(led_mask);
+        pow_on(led_mask);
     } else {
-        led_off(led_mask);
+        pow_off(led_mask);
     }
 }
 
