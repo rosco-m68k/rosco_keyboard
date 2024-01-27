@@ -74,6 +74,9 @@
 #define CMD_MOUSE_STRM_ON   0x21
 #define CMD_MOUSE_STRM_OFF  0x22
 #define CMD_MOUSE_REPORT    0x23
+#define CMD_MOUSE_SET_RATE  0x24
+#define CMD_MOUSE_SET_RES   0x25
+#define CMD_MOUSE_SET_SCALE 0x26
 #ifdef REVISION_2
 // 0x23 - 0x2f reserved...
 #define CMD_SPI_ENABLE      0x30
@@ -90,6 +93,9 @@
 // Modes 2..127 reserved, 128+ allowed for third-party modes
 #define CMD_MODE_SCAN       ((0))
 #define CMD_MODE_ASCII      ((1))
+
+#define CMD_MOUSE_SCL_11    0x01
+#define CMD_MOUSE_SCL_21    0x02
 
 #define KEY_COUNT           ((uint8_t)67)
 #define LED_COUNT           ((uint8_t)8)
@@ -459,6 +465,9 @@ static void process_command(int byte) {
         case CMD_MODE_SET:
         case CMD_RPT_DELAY_SET:
         case CMD_RPT_RATE_SET:
+        case CMD_MOUSE_SET_RATE:
+        case CMD_MOUSE_SET_RES:
+        case CMD_MOUSE_SET_SCALE:
             current_command = byte;
             M_UART.write(CMD_ACK);
             break;
@@ -627,6 +636,59 @@ static void process_command(int byte) {
             }
             current_command = 0;
             break;            
+        case CMD_MOUSE_SET_RATE:
+            if (have_mouse) {
+                switch (byte) {
+                case 10:
+                case 20:
+                case 40:
+                case 60:
+                case 80:
+                case 100:
+                case 200:
+                    mouse.set_sample_rate(byte, false);
+                    M_UART.write(CMD_ACK);
+                    break;
+                default:
+                    M_UART.write(CMD_NAK);
+                }
+            } else {
+                M_UART.write(CMD_NAK);
+            }
+            current_command = 0;
+            break;
+        case CMD_MOUSE_SET_RES:
+            if (have_mouse) {
+                if (byte >= 0 && byte < 5) {
+                    mouse.set_resolution(byte);
+                    M_UART.write(CMD_ACK);
+                } else {
+                    M_UART.write(CMD_NAK);
+                }
+            } else {
+                M_UART.write(CMD_NAK);
+            }
+            current_command = 0;
+            break;
+        case CMD_MOUSE_SET_SCALE:
+            if (have_mouse) {
+                switch (byte) {
+                case CMD_MOUSE_SCL_11:
+                    mouse.set_scaling_1_1();
+                    M_UART.write(CMD_ACK);
+                    break;
+                case CMD_MOUSE_SCL_21:
+                    mouse.set_scaling_2_1();
+                    M_UART.write(CMD_ACK);
+                    break;
+                default:
+                    M_UART.write(CMD_NAK);
+                }
+            } else {
+                M_UART.write(CMD_NAK);
+            }
+            current_command = 0;
+            break;
         default:
             M_UART.write(CMD_NAK);
             current_command = 0;
