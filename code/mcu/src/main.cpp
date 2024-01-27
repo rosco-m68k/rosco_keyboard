@@ -1104,7 +1104,7 @@ void setup(void) {
 #endif
 
         // Do we want PS/2 or I2C?
-        if (digitalRead(I2C_JP_IN) == HIGH) {
+        if (digitalRead(I2C_JP_IN) == LOW) {
             // I2C...
             i2c_mode = true;
 
