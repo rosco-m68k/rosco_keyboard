@@ -71,8 +71,9 @@
 #define CMD_RPT_RATE_SET    0x12
 // 0x13 - 0x1f reserved...
 #define CMD_MOUSE_DETECT    0x20
-#define CMD_MOUSE_ENABLE    0x21
-#define CMD_MOUSE_DISABLE   0x22
+#define CMD_MOUSE_STRM_ON   0x21
+#define CMD_MOUSE_STRM_OFF  0x22
+#define CMD_MOUSE_REPORT    0x23
 #ifdef REVISION_2
 // 0x23 - 0x2f reserved...
 #define CMD_SPI_ENABLE      0x30
@@ -371,6 +372,74 @@ static inline __attribute__((always_inline)) void pow_set(const uint8_t led_mask
     }
 }
 
+#ifdef REVISION_2
+/*
+ * SPI ISR
+ */
+ISR(SPI_STC_vect) {
+    unsigned char c = SPDR;
+
+    spi_buf[spi_ptr_w++] = c;
+    spi_ptr_w &= SPI_BUF_MASK;
+}
+
+static inline __attribute__((always_inline)) void service_spi(void) {
+    // Only sending one byte per call rather than emptying the buffer.
+    // Since this is called in the matrix scan loop, this means we 
+    // will keep servicing SPI without letting it overrun the whole 
+    // system...
+    //
+    // We don't need to disable interrupts because of the circular buffer,
+    // it's possible (but unlikely) we can miss data if the buffer overruns - 
+    // disabling interrupts wouldn't help - we'd just miss it altogether
+    // in that case which isn't any better (I'd actually argue worse since 
+    // probably more likely...)
+    //
+    if (!uart_mode && enable_spi_reports && spi_ptr_r != spi_ptr_w) {
+        unsigned char c = spi_buf[spi_ptr_r++];
+        spi_ptr_r &= SPI_BUF_MASK;
+        M_UART.write(0x7 | (c & 0xF0) >> 4);
+        M_UART.write(0x7 | c & 0x0F);
+    }
+}
+#else
+static inline __attribute__((always_inline)) void service_spi(void) {
+}
+#endif
+
+static inline __attribute__((always_inline)) bool service_mouse(void) {
+    if (!mouse.get_data()) {
+        // Fail fast and disable mouse reporting if we timed out,
+        // to avoid degrading keyboard experience...
+        //
+        // Software can try to re-enable if it likes...
+        enable_mouse_reports = false;
+        have_mouse = false;
+        return false;
+    }
+
+    uint8_t s = mouse.status();
+    int x = mouse.x_movement();
+    int y = mouse.y_movement();
+    int z = mouse.z_movement();
+
+    if (x != mouse_last.x || y != mouse_last.y || z != mouse_last.z || s != mouse_last.s) {
+        // send report
+        M_UART.write(PS2_PKT_START_CODE);
+        M_UART.write(s);
+        M_UART.write((uint8_t)abs(x));      // Sign/overflow represented in status....
+        M_UART.write((uint8_t)abs(y));
+        M_UART.write((uint8_t)abs(z));
+
+        mouse_last.x = x;
+        mouse_last.y = y;
+        mouse_last.z = z;
+        mouse_last.s = s;
+    }
+
+    return true;
+}
+
 static void process_command(int byte) {
     if (byte < 0) {
         return;
@@ -394,13 +463,18 @@ static void process_command(int byte) {
             M_UART.write(CMD_ACK);
             break;
         case CMD_MOUSE_DETECT:
-            if (!i2c_mode && !uart_mode && have_mouse) {
-                M_UART.write(CMD_ACK);
+            if (!i2c_mode) {
+                if (mouse.initialise() == 0) {  // 0 == ok, else timeout
+                    have_mouse = true;
+                    M_UART.write(CMD_ACK);
+                } else {
+                    M_UART.write(CMD_NAK);
+                }
             } else {
                 M_UART.write(CMD_NAK);
             }
             break;
-        case CMD_MOUSE_ENABLE:
+        case CMD_MOUSE_STRM_ON:
             if (!i2c_mode && !uart_mode) {
                 if (mouse.initialise() == 0) {  // 0 == ok, else timeout
                     have_mouse = true;
@@ -416,9 +490,30 @@ static void process_command(int byte) {
                 M_UART.write(CMD_NAK);
             }
             break;
-        case CMD_MOUSE_DISABLE:
+        case CMD_MOUSE_STRM_OFF:
             enable_mouse_reports = false;
             M_UART.write(CMD_ACK);
+            break;
+        case CMD_MOUSE_REPORT:
+            if (i2c_mode) {
+                M_UART.write(CMD_NAK);
+            } else {
+                if (!have_mouse) {
+                    if (mouse.initialise() != 0) {  // 0 == ok, else timeout
+                        M_UART.write(CMD_NAK);
+                        break;
+                    }
+
+                    have_mouse = true;
+                }
+
+                if (service_mouse()) {
+                    M_UART.write(CMD_ACK);
+                } else {
+                    M_UART.write(CMD_NAK);
+                }
+            }
+
             break;
 #ifdef REVISION_2
         case CMD_SPI_ENABLE:
@@ -511,6 +606,7 @@ static void process_command(int byte) {
                 M_UART.write(CMD_ACK);
             } else if (byte == CMD_MODE_ASCII) {
                 uart_mode = true;
+                enable_mouse_reports = false;
                 M_UART.write(CMD_ACK);
             } else {
                 M_UART.write(CMD_NAK);
@@ -723,77 +819,6 @@ static inline __attribute__((always_inline)) void uart_repeat_keypress(int row, 
 
         if (ascii > 0) {
             M_UART.write(ascii);
-        }
-    }
-}
-
-#ifdef REVISION_2
-/*
- * SPI ISR
- */
-ISR(SPI_STC_vect) {
-    unsigned char c = SPDR;
-
-    spi_buf[spi_ptr_w++] = c;
-    spi_ptr_w &= SPI_BUF_MASK;
-}
-
-static inline __attribute__((always_inline)) void service_spi(void) {
-    // Only sending one byte per call rather than emptying the buffer.
-    // Since this is called in the matrix scan loop, this means we 
-    // will keep servicing SPI without letting it overrun the whole 
-    // system...
-    //
-    // We don't need to disable interrupts because of the circular buffer,
-    // it's possible (but unlikely) we can miss data if the buffer overruns - 
-    // disabling interrupts wouldn't help - we'd just miss it altogether
-    // in that case which isn't any better (I'd actually argue worse since 
-    // probably more likely...)
-    //
-    if (!uart_mode && enable_spi_reports && spi_ptr_r != spi_ptr_w) {
-        unsigned char c = spi_buf[spi_ptr_r++];
-        spi_ptr_r &= SPI_BUF_MASK;
-        M_UART.write(0x7 | (c & 0xF0) >> 4);
-        M_UART.write(0x7 | c & 0x0F);
-    }
-}
-#else
-static inline __attribute__((always_inline)) void service_spi(void) {
-}
-#endif
-
-static inline __attribute__((always_inline)) void service_mouse(void) {
-    if (!uart_mode && enable_mouse_reports) {      // only works in scancode mode...
-                                                   // enable_mouse_reports can only be true
-                                                   // if we have a mouse and are not in i2c mode
-                                                   // because we check in the command handler 🙂
-
-        if (!mouse.get_data()) {
-            // Fail fast and disable mouse reporting if we timed out,
-            // to avoid degrading keyboard experience...
-            //
-            // Software can try to re-enable if it likes...
-            enable_mouse_reports = false;
-            return;
-        }
-
-        uint8_t s = mouse.status();
-        int x = mouse.x_movement();
-        int y = mouse.y_movement();
-        int z = mouse.z_movement();
-
-        if (x != mouse_last.x || y != mouse_last.y || z != mouse_last.z || s != mouse_last.s) {
-            // send report
-            M_UART.write(PS2_PKT_START_CODE);
-            M_UART.write(s);
-            M_UART.write((uint8_t)abs(x));      // Sign/overflow represented in status....
-            M_UART.write((uint8_t)abs(y));
-            M_UART.write((uint8_t)abs(z));
-
-            mouse_last.x = x;
-            mouse_last.y = y;
-            mouse_last.z = z;
-            mouse_last.s = s;
         }
     }
 }
@@ -1137,7 +1162,9 @@ void loop(void) {
         }
 
         // Anything happening with the mouse?
-        service_mouse();
+        if (!uart_mode && enable_mouse_reports) {
+            service_mouse();
+        }
     }
 
     wdt_reset();
