@@ -25,6 +25,8 @@
  *                   half of the received byte, e.g. 0b0111nnnn (REVISION 2 ONLY).
  */
 
+#include "config.hpp"
+
 #include <Arduino.h>
 #ifdef REVISION_2
 #include <SPI.h>
@@ -32,267 +34,14 @@
 #include <PS2MouseHandler.h>
 #include <avr/wdt.h>
 
-#define ROW_COUNT           5
-#define COL_COUNT           15
-
-#define LED_OPORT           PORTG
-#define LED_DDR             DDRG
-
-#define POW_OPORT           PORTE
-#define POW_DDR             DDRE
-
-#define POW_RED             0x08
-#define POW_GRN             0x10
-#define POW_BLU             0x20
-
-#define LED_CAPS            0x01
-#define LED_DISK            0x02
-#define LED_EXTRED          0x04
-#define LED_EXTGRN          0x08
-#define LED_EXTBLU          0x10
-
-#define DEBOUNCE_MILLIS     10
-#define ROW_SETTLE_DELAY    0
-#define DEFAULT_RPT_DELAY   500
-#define DEFAULT_RATE_LIMIT  50
-
-// Commands
-#define CMD_LED_POWRED      0x1
-#define CMD_LED_POWGRN      0x2
-#define CMD_LED_POWBLU      0x3
-#define CMD_LED_CAPS        0x4
-#define CMD_LED_DISK        0x5
-#define CMD_LED_EXTRED      0x6
-#define CMD_LED_EXTGRN      0x7
-#define CMD_LED_EXTBLU      0x8
-// 0x9 - 0xf reserved...
-#define CMD_MODE_SET        0x10
-#define CMD_RPT_DELAY_SET   0x11
-#define CMD_RPT_RATE_SET    0x12
-// 0x13 - 0x1f reserved...
-#define CMD_MOUSE_DETECT    0x20
-#define CMD_MOUSE_STRM_ON   0x21
-#define CMD_MOUSE_STRM_OFF  0x22
-#define CMD_MOUSE_REPORT    0x23
-#define CMD_MOUSE_SET_RATE  0x24
-#define CMD_MOUSE_SET_RES   0x25
-#define CMD_MOUSE_SET_SCALE 0x26
-#ifdef REVISION_2
-// 0x23 - 0x2f reserved...
-#define CMD_SPI_ENABLE      0x30
-#define CMD_SPI_DISABLE     0x31
-#endif
-// 0x32 - 0xef reserved...
-#define CMD_IDENT           0xf0
-#define CMD_RESET           0xf1
-// 0xf2 - 0xff reserved...
-
-#define CMD_ACK             ((uint8_t)0xff)
-#define CMD_NAK             ((uint8_t)0x0)
-
-// Modes 2..127 reserved, 128+ allowed for third-party modes
-#define CMD_MODE_SCAN       ((0))
-#define CMD_MODE_ASCII      ((1))
-
-#define CMD_MOUSE_SCL_11    0x01
-#define CMD_MOUSE_SCL_21    0x02
-
-#define KEY_COUNT           ((uint8_t)67)
-#define LED_COUNT           ((uint8_t)8)
-
-#define CAP_KBD             0x01
-#define CAP_SPI             0x02
-#define CAP_I2C             0x04
-#define CAP_PWM             0x08
-#define CAP_PS2             0x10
-#define CAP_RESERVED        0x80    // Must never be set!
-
-// For these, I2C or PS2 are added later depending on jumper config...
-#ifdef REVISION_2
-#define CAPABILITIES        ((uint8_t)(CAP_KBD | CAP_SPI | CAP_PWM))
-#else
-#define CAPABILITIES        ((uint8_t)(CAP_KBD | CAP_SPI))
-#endif
-
-#define IDENT_MODE_SCAN     ((uint8_t)0)
-#define IDENT_MODE_ASCII    ((uint8_t)1)
+#include "command.hpp"
+#include "pins.hpp"
+#include "tables.hpp"
 
 // On mega64 we're using UART 1 as the main
 #define M_UART              Serial1
 // ... and UART 0 as the passthru
 #define PT_UART             Serial
-
-#define UART_SPEED_JP_I     PIN_PF6         // JP1
-#define UART_MODE_JP_I      PIN_PF7         // JP2
-#define PASS_THRU_JP_I      PIN_PF4         // JP3
-#define I2C_JP_IN           PIN_PF3         // JP4
-#define JP5_IN              PIN_PF2         // JP5
-#define G_DISABLE_JP_I      PIN_PF1         // JP6
-
-#define SPI_BUF_SIZE        0x200
-#define SPI_BUF_MASK        ((SPI_BUF_SIZE-1))
-
-#define PS2_CLOCK           PIN_PD0
-#define PS2_DATA            PIN_PD1
-#define PS2_MOUSE_BTN_LEFT  0
-#define PS2_MOUSE_BTN_MID   0
-#define PS2_MOUSE_BTN_RIGHT 0
-#define PS2_PKT_START_CODE  0x60            // Scancode: Not down, row 6, col 0
-
-#define CAPS_WORD_FLASH_D   300
-
-const PROGMEM uint8_t row_pins[] = {
-#ifdef REVISION_2
-    PIN_PC5,
-    PIN_PC4,
-#else
-    PIN_PB1,
-    PIN_PB0,
-#endif
-    PIN_PA6,
-    PIN_PA5,
-    PIN_PA4,
-};
-
-const PROGMEM uint8_t col_pins[] = {
-    PIN_PA0,
-    PIN_PA1,
-    PIN_PA2,
-    PIN_PA3,
-    PIN_PA7,
-#ifdef REVISION_2
-    PIN_PC6,
-    PIN_PC7,
-#else
-    PIN_PB2,
-    PIN_PB3,
-#endif
-    PIN_PB4,
-    PIN_PB5,
-    PIN_PB7,
-    PIN_PB6,
-    PIN_PC3,
-    PIN_PC2,
-    PIN_PC1,
-    PIN_PC0,
-};
-
-const PROGMEM uint8_t uart_keys_nocaps_unshift[] = {
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 8,   0,
-    0,   '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\',0,
-    0,   0,   'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'',0,   '\r',0,
-    0,   0,   '`', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-};
-
-const PROGMEM uint8_t uart_keys_nocaps_shift[] = {
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 8,   0,
-    0,   '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '|', 0,
-    0,   0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', 0,   '\r',0,
-    0,   0,   '~', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-};
-
-const PROGMEM uint8_t uart_keys_caps_unshift[] = {
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 8,   0,
-    0,   '\t','Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\',0,
-    0,   0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', '\'',0,   '\r',0,
-    0,   0,   '`', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-};
-
-const PROGMEM uint8_t uart_keys_caps_shift[] = {
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 8,   0,
-    0,   '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '{', '}', '|', 0,
-    0,   0,   'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ':', '"', 0,   '\r',0,
-    0,   0,   '~', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '<', '>', '?', 0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-};
-
-const PROGMEM uint8_t uart_keys_control[] = {
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   17,  23,  5,   18,  20,  25,  21, 9,   15,  16,  27,   0,   0,   0,
-    0,   0,   1,   19,  4,   6,   7,   8,   10,  11,  12,  0,   0,   0,   '\r',0,
-    0,   0,   0,   26, 24,   3,   22,  2,   14,  13,  0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-};
-
-#define CAPS_CODE_U         0x31
-#define SHIFT_LEFT_CODE_U   0x41
-#define SHIFT_RIGHT_CODE_U  0x4d
-#define CTRL_LEFT_CODE_U    0x51
-#define CTRL_RIGHT_CODE_U   0x5e
-#define CMD_LEFT_CODE_U     0x52
-#define CMD_RIGHT_CODE_U    0x5c
-#define ROSCO_LEFT_CODE_U   0x53
-#define ROSCO_RIGHT_CODE_U  0x5b
-#define OPTION_CODE_U       0x5d
-
-#define CAPS_CODE_D         ((CAPS_CODE_U         | 0x80))
-#define SHIFT_LEFT_CODE_D   ((SHIFT_LEFT_CODE_U   | 0x80))
-#define SHIFT_RIGHT_CODE_D  ((SHIFT_RIGHT_CODE_U  | 0x80))
-#define CTRL_LEFT_CODE_D    ((CTRL_LEFT_CODE_U    | 0x80))
-#define CTRL_RIGHT_CODE_D   ((CTRL_RIGHT_CODE_U   | 0x80))
-#define CMD_LEFT_CODE_D     ((CMD_LEFT_CODE_U     | 0x80))
-#define CMD_RIGHT_CODE_D    ((CMD_RIGHT_CODE_U    | 0x80))
-#define ROSCO_LEFT_CODE_D   ((ROSCO_LEFT_CODE_U   | 0x80))
-#define ROSCO_RIGHT_CODE_D  ((ROSCO_RIGHT_CODE_U  | 0x80))
-#define OPTION_CODE_D       ((OPTION_CODE_U       | 0x80))
 
 static bool keys[ROW_COUNT][COL_COUNT];
 static unsigned long keys_t[ROW_COUNT][COL_COUNT];
@@ -330,7 +79,7 @@ static struct {
 } mouse_last;
 
 #ifdef REVISION_2
-static uint8_t spi_buf[512];
+static uint8_t spi_buf[SPI_BUF_SIZE];
 volatile static uint16_t spi_ptr_r;
 volatile static uint16_t spi_ptr_w;
 static bool enable_spi_reports;
@@ -843,7 +592,7 @@ static inline __attribute__((always_inline)) bool uart_process_special(uint8_t k
         uart_rrosco = false;
         return true;
     case OPTION_CODE_D:
-        uart_option = false;
+        uart_option = true;
         return true;
     case OPTION_CODE_U:
         uart_option = false;
@@ -856,6 +605,8 @@ static inline __attribute__((always_inline)) bool uart_process_special(uint8_t k
 static inline __attribute__((always_inline)) uint8_t uart_keybreak_code(uint8_t code) {
     if (uart_lctrl || uart_rctrl) {
         return pgm_read_byte_near(uart_keys_control + code);
+    } else if (uart_option) {
+        return pgm_read_byte_near(uart_keys_option_unshift_1 + code);
     } else if (uart_caps || uart_caps_word) {
         if (uart_lshift || uart_rshift) {
             return pgm_read_byte_near(uart_keys_caps_shift + code);
@@ -873,15 +624,51 @@ static inline __attribute__((always_inline)) uint8_t uart_keybreak_code(uint8_t 
     return 0;
 }
 
+/*
+ * This just handles second byte for UTF-8 (Option+<key>), returns 0
+ * when not applicable...
+ */
+static inline __attribute__((always_inline)) uint8_t uart_keybreak_code_2(uint8_t code) {
+    if (uart_option) {
+        return pgm_read_byte_near(uart_keys_option_unshift_2 + code);
+    }
+
+    return 0;
+}
+
+/*
+ * This just handles third byte for UTF-8 (Option+<key>), returns 0
+ * when not applicable...
+ */
+static inline __attribute__((always_inline)) uint8_t uart_keybreak_code_3(uint8_t code) {
+    if (uart_option) {
+        return pgm_read_byte_near(uart_keys_option_unshift_3 + code);
+    }
+
+    return 0;
+}
+
+static inline __attribute__((always_inline)) void uart_send_keypress(uint8_t code) {
+    uint8_t ascii = uart_keybreak_code(code);
+    uint8_t ascii2 = uart_keybreak_code_2(code);
+    uint8_t ascii3 = uart_keybreak_code_3(code);
+
+    if (ascii > 0) {
+        M_UART.write(ascii);
+    }
+    if (ascii2 > 0) {
+        M_UART.write(ascii2);
+    }
+    if (ascii3 > 0) {
+        M_UART.write(ascii3);
+    }
+}
+
 static inline __attribute__((always_inline)) void uart_repeat_keypress(int row, int col) {
     uint8_t code = keyup(row, col);
 
     if (key_is_repeatable(code)) {
-        uint8_t ascii = uart_keybreak_code(code);
-
-        if (ascii > 0) {
-            M_UART.write(ascii);
-        }
+        uart_send_keypress(code);
     }
 }
 
@@ -1003,9 +790,7 @@ static inline __attribute__((always_inline)) void uart_loop(void) {
                         if (!uart_process_special(code)) {
                             uint8_t ascii = uart_keybreak_code(code);
 
-                            if (ascii > 0) {
-                                M_UART.write(ascii);
-                            }
+                            uart_send_keypress(code);
 
                             // Cancel caps word?
                             if (uart_caps_word && is_ascii_word_terminator(ascii)) {
@@ -1078,17 +863,17 @@ static inline __attribute__((always_inline)) void scancode_loop(void) {
                         // key already down - are we repeating?
                         if (key_is_repeatable(keydown(row, col)) && repeat_delay > 0) {
                             if (keys_r[row][col]) {
-                                // Already repeating - time for another break?
+                                // Already repeating - time for another make?
                                 if (now - keys_t[row][col] > repeat_rate_limit) {
                                     // yes - send it
-                                    M_UART.write(keyup(row, col));
+                                    M_UART.write(keydown(row, col));
                                     keys_t[row][col] = now;
                                 }
                             } else {
                                 // not repeating - time to start?
                                 if (now - keys_t[row][col] > repeat_delay) {
                                     // yes - start repeating
-                                    M_UART.write(keyup(row, col));
+                                    M_UART.write(keydown(row, col));
                                     keys_t[row][col] = now;
                                     keys_r[row][col] = true;
                                 }
