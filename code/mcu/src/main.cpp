@@ -493,6 +493,9 @@ static inline __attribute__((always_inline)) bool is_ascii_word_terminator(uint8
     //
     switch (ascii) {
     case ' ':
+    case '\n':
+    case '\r':
+    case '\t':
     case '!':
     case '@':
     case '#':
@@ -516,7 +519,6 @@ static inline __attribute__((always_inline)) bool is_ascii_word_terminator(uint8
     case '>':
     case '/':
     case '?':
-    case '~':
         return true;
     }
 
