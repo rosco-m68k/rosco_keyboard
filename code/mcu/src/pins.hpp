@@ -8,7 +8,7 @@
 #define UART_SPEED_JP_I     PIN_PF6         // JP1
 #define UART_MODE_JP_I      PIN_PF7         // JP2
 #define PASS_THRU_JP_I      PIN_PF4         // JP3
-#define I2C_JP_IN           PIN_PF3         // JP4
+#define I2C_JP_I            PIN_PF3         // JP4
 #define JP5_IN              PIN_PF2         // JP5
 #define G_DISABLE_JP_I      PIN_PF1         // JP6
 

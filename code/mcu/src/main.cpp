@@ -953,7 +953,8 @@ void setup(void) {
 #endif
 
         // Do we want PS/2 or I2C?
-        if (digitalRead(I2C_JP_IN) == LOW) {
+        pinMode(I2C_JP_I, INPUT_PULLUP);
+        if (digitalRead(I2C_JP_I) == LOW) {
             // I2C...
             i2c_mode = true;
 
