@@ -1,77 +1,93 @@
-#ifndef KEYMAP_RUSSIAN_H
-#define KEYMAP_RUSSIAN_H
+// Copyright 2024 QMK
+// SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "keymap.h"
+/*******************************************************************************
+  88888888888 888      d8b                .d888 d8b 888               d8b
+      888     888      Y8P               d88P"  Y8P 888               Y8P
+      888     888                        888        888
+      888     88888b.  888 .d8888b       888888 888 888  .d88b.       888 .d8888b
+      888     888 "88b 888 88K           888    888 888 d8P  Y8b      888 88K
+      888     888  888 888 "Y8888b.      888    888 888 88888888      888 "Y8888b.
+      888     888  888 888      X88      888    888 888 Y8b.          888      X88
+      888     888  888 888  88888P'      888    888 888  "Y8888       888  88888P'
+                                                        888                 888
+                                                        888                 888
+                                                        888                 888
+     .d88b.   .d88b.  88888b.   .d88b.  888d888 8888b.  888888 .d88b.   .d88888
+    d88P"88b d8P  Y8b 888 "88b d8P  Y8b 888P"      "88b 888   d8P  Y8b d88" 888
+    888  888 88888888 888  888 88888888 888    .d888888 888   88888888 888  888
+    Y88b 888 Y8b.     888  888 Y8b.     888    888  888 Y88b. Y8b.     Y88b 888
+     "Y88888  "Y8888  888  888  "Y8888  888    "Y888888  "Y888 "Y8888   "Y88888
+         888
+    Y8b d88P
+     "Y88P"
+*******************************************************************************/
 
-// Normal Chracters      // reg   SHIFT
-#define RU_A     KC_F    // а and А
-#define RU_BE    KC_COMM // б and Б
-#define RU_VE    KC_D    // в and В
-#define RU_GHE   KC_U    // г and Г
-#define RU_DE    KC_L    // д and Д
-#define RU_IE    KC_T    // е and Е
-#define RU_IO    KC_GRV  // ё and Ё
-#define RU_ZHE   KC_SCLN // ж and Ж
-#define RU_ZE    KC_P    // з and З
-#define RU_I     KC_B    // и and И
-#define RU_SRT_I KC_Q    // й and Й
-#define RU_KA    KC_R    // к and К
-#define RU_EL    KC_K    // л and Л
-#define RU_EM    KC_V    // м and М
-#define RU_EN    KC_Y    // н and Н
-#define RU_O     KC_J    // о and О
-#define RU_PE    KC_G    // п and П
-#define RU_ER    KC_H    // р and Р
-#define RU_ES    KC_C    // с and С
-#define RU_TE    KC_N    // т and Т
-#define RU_U     KC_E    // у and У
-#define RU_EF    KC_A    // ф and Ф
-#define RU_HA    KC_LBRC // х and Х
-#define RU_TSE   KC_W    // ц and Ц
-#define RU_CHE   KC_X    // ч and Ч
-#define RU_SHA   KC_I    // ш and Ш
-#define RU_SHCHA KC_O    // щ and Щ
-#define RU_HSIGN KC_RBRC // ъ and Ъ
-#define RU_YERU  KC_S    // ы and Ы
-#define RU_SSIGN KC_M    // ь and Ь
-#define RU_E     KC_QUOT // э and Э
-#define RU_YU    KC_DOT  // ю and Ю
-#define RU_YA    KC_Z    // я and Я
+#pragma once
+#include "keycodes.h"
+// clang-format off
 
-#define RU_1     KC_1    // 1 and !
-#define RU_2     KC_2    // 2 and "
-#define RU_3     KC_3    // 3 and №
-#define RU_4     KC_4    // 4 and ;
-#define RU_5     KC_5    // 5 and %
-#define RU_6     KC_6    // 6 and :
-#define RU_7     KC_7    // 7 and ?
-#define RU_8     KC_8    // 8 and *
-#define RU_9     KC_9    // 9 and (
-#define RU_0     KC_0    // 0 and )
+// Aliases
+#define RU_YO   KC_GRV  // Ё
+#define RU_1    KC_1    // 1
+#define RU_2    KC_2    // 2
+#define RU_3    KC_3    // 3
+#define RU_4    KC_4    // 4
+#define RU_5    KC_5    // 5
+#define RU_6    KC_6    // 6
+#define RU_7    KC_7    // 7
+#define RU_8    KC_8    // 8
+#define RU_9    KC_9    // 9
+#define RU_0    KC_0    // 0
+#define RU_MINS KC_MINS // -
+#define RU_EQL  KC_EQL  // =
+#define RU_SHTI KC_Q    // Й
+#define RU_TSE  KC_W    // Ц
+#define RU_U    KC_E    // У
+#define RU_KA   KC_R    // К
+#define RU_IE   KC_T    // Е
+#define RU_EN   KC_Y    // Н
+#define RU_GHE  KC_U    // Г
+#define RU_SHA  KC_I    // Ш
+#define RU_SHCH KC_O    // Щ
+#define RU_ZE   KC_P    // З
+#define RU_HA   KC_LBRC // Х
+#define RU_HARD KC_RBRC // Ъ
+#define RU_BSLS KC_BSLS // (backslash)
+#define RU_EF   KC_A    // Ф
+#define RU_YERU KC_S    // Ы
+#define RU_VE   KC_D    // В
+#define RU_A    KC_F    // А
+#define RU_PE   KC_G    // П
+#define RU_ER   KC_H    // Р
+#define RU_O    KC_J    // О
+#define RU_EL   KC_K    // Л
+#define RU_DE   KC_L    // Д
+#define RU_ZHE  KC_SCLN // Ж
+#define RU_E    KC_QUOT // Э
+#define RU_YA   KC_Z    // Я
+#define RU_CHE  KC_X    // Ч
+#define RU_ES   KC_C    // С
+#define RU_EM   KC_V    // М
+#define RU_I    KC_B    // И
+#define RU_TE   KC_N    // Т
+#define RU_SOFT KC_M    // Ь
+#define RU_BE   KC_COMM // Б
+#define RU_YU   KC_DOT  // Ю
+#define RU_DOT  KC_SLSH // .
+#define RU_EXLM S(RU_1)    // !
+#define RU_DQUO S(RU_2)    // "
+#define RU_NUM  S(RU_3)    // №
+#define RU_SCLN S(RU_4)    // ;
+#define RU_PERC S(RU_5)    // %
+#define RU_COLN S(RU_6)    // :
+#define RU_QUES S(RU_7)    // ?
+#define RU_ASTR S(RU_8)    // *
+#define RU_LPRN S(RU_9)    // (
+#define RU_RPRN S(RU_0)    // )
+#define RU_UNDS S(RU_MINS) // _
+#define RU_PLUS S(RU_EQL)  // +
+#define RU_SLSH S(RU_BSLS) // /
+#define RU_COMM S(RU_DOT)  // ,
+#define RU_RUBL ALGR(RU_8)    // ₽
 
-#define RU_MINS  KC_MINS // - and _
-#define RU_EQL   KC_EQL  // = and +
-#define RU_BSLS  KC_BSLS // \ and /
-#define RU_DOT   KC_SLSH // . and ,
-
-// Shifted Chracters
-#define RU_EXLM LSFT(RU_1) // !
-#define RU_DQUT LSFT(RU_2) // "
-#define RU_NMRO LSFT(RU_3) // №
-#define RU_SCLN LSFT(RU_4) // ;
-#define RU_PERC LSFT(RU_5) // %
-#define RU_COLN LSFT(RU_6) // :
-#define RU_QUES LSFT(RU_7) // ?
-#define RU_ASTR LSFT(RU_8) // *
-#define RU_LPRN LSFT(RU_9) // (
-#define RU_RPRN LSFT(RU_0) // )
-
-#define RU_UNDR LSFT(RU_MINS) // _
-#define RU_PLUS LSFT(RU_EQL)  // +
-#define RU_SLSH LSFT(RU_BSLS) // /
-#define RU_COMM LSFT(RU_DOT)  // ,
-
-// Alt Gr-ed characters
-#define RU_RUBL RALT(RU_8) // ₽
-
-#endif

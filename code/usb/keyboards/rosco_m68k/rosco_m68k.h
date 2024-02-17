@@ -17,4 +17,8 @@
 	{ K400,  K401,  K402,  KC_NO, KC_NO, KC_NO, K406,  KC_NO, KC_NO, KC_NO, K410,  K411,  K412,  K413,  K414 }  \
 }
 
+#define PIN_POW_RED		F0
+#define PIN_POW_GRN		D6
+#define PIN_POW_BLU		F1
+
 #endif
