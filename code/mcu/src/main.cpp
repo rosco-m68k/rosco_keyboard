@@ -25,6 +25,8 @@
  *                   half of the received byte, e.g. 0b0111nnnn (REVISION 2 ONLY).
  */
 
+#define REVISION_2
+
 #include "config.hpp"
 
 #include <Arduino.h>
@@ -154,7 +156,7 @@ static inline __attribute__((always_inline)) void service_spi(void) {
         unsigned char c = spi_buf[spi_ptr_r++];
         spi_ptr_r &= SPI_BUF_MASK;
         M_UART.write(0x7 | (c & 0xF0) >> 4);
-        M_UART.write(0x7 | c & 0x0F);
+        M_UART.write(0x7 | (c & 0x0F));
     }
 }
 #else
@@ -915,7 +917,10 @@ void setup(void) {
         LED_OPORT = 0xff;
 
         // Turn on power LED (green)
-        pow_on(POW_GRN);
+        //pow_on(POW_RED);
+        analogWrite(PIN_PE3, 0);
+        analogWrite(PIN_PE4, 255);
+        analogWrite(PIN_PE5, 255);
 
         // And disk LED while we do init...
         led_on(LED_DISK);
@@ -949,7 +954,6 @@ void setup(void) {
         pinMode(MISO, OUTPUT);
         SPCR |= _BV(SPE);
         SPCR |= _BV(SPIE);
-        }
 #endif
 
         // Do we want PS/2 or I2C?
