@@ -1,0 +1,1 @@
+-Wl,--gc-sections -Wl,-Map=./.build/rosco_m68k_default.map,--cref     -lm 

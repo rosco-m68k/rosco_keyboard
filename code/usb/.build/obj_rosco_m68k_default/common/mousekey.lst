@@ -1,0 +1,2106 @@
+   1               		.file	"mousekey.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               		.section	.text.move_unit,"ax",@progbits
+  12               	move_unit:
+  13               	.LFB104:
+  14               		.file 1 "./tmk_core/common/mousekey.c"
+   1:./tmk_core/common/mousekey.c **** /*
+   2:./tmk_core/common/mousekey.c **** Copyright 2011 Jun Wako <wakojun@gmail.com>
+   3:./tmk_core/common/mousekey.c **** 
+   4:./tmk_core/common/mousekey.c **** This program is free software: you can redistribute it and/or modify
+   5:./tmk_core/common/mousekey.c **** it under the terms of the GNU General Public License as published by
+   6:./tmk_core/common/mousekey.c **** the Free Software Foundation, either version 2 of the License, or
+   7:./tmk_core/common/mousekey.c **** (at your option) any later version.
+   8:./tmk_core/common/mousekey.c **** 
+   9:./tmk_core/common/mousekey.c **** This program is distributed in the hope that it will be useful,
+  10:./tmk_core/common/mousekey.c **** but WITHOUT ANY WARRANTY; without even the implied warranty of
+  11:./tmk_core/common/mousekey.c **** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  12:./tmk_core/common/mousekey.c **** GNU General Public License for more details.
+  13:./tmk_core/common/mousekey.c **** 
+  14:./tmk_core/common/mousekey.c **** You should have received a copy of the GNU General Public License
+  15:./tmk_core/common/mousekey.c **** along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  16:./tmk_core/common/mousekey.c **** */
+  17:./tmk_core/common/mousekey.c **** 
+  18:./tmk_core/common/mousekey.c **** #include <stdint.h>
+  19:./tmk_core/common/mousekey.c **** #include "keycode.h"
+  20:./tmk_core/common/mousekey.c **** #include "host.h"
+  21:./tmk_core/common/mousekey.c **** #include "timer.h"
+  22:./tmk_core/common/mousekey.c **** #include "print.h"
+  23:./tmk_core/common/mousekey.c **** #include "debug.h"
+  24:./tmk_core/common/mousekey.c **** #include "mousekey.h"
+  25:./tmk_core/common/mousekey.c **** 
+  26:./tmk_core/common/mousekey.c **** 
+  27:./tmk_core/common/mousekey.c **** 
+  28:./tmk_core/common/mousekey.c **** static report_mouse_t mouse_report = {};
+  29:./tmk_core/common/mousekey.c **** static uint8_t mousekey_repeat =  0;
+  30:./tmk_core/common/mousekey.c **** static uint8_t mousekey_accel = 0;
+  31:./tmk_core/common/mousekey.c **** 
+  32:./tmk_core/common/mousekey.c **** static void mousekey_debug(void);
+  33:./tmk_core/common/mousekey.c **** 
+  34:./tmk_core/common/mousekey.c **** 
+  35:./tmk_core/common/mousekey.c **** /*
+  36:./tmk_core/common/mousekey.c ****  * Mouse keys  acceleration algorithm
+  37:./tmk_core/common/mousekey.c ****  *  http://en.wikipedia.org/wiki/Mouse_keys
+  38:./tmk_core/common/mousekey.c ****  *
+  39:./tmk_core/common/mousekey.c ****  *  speed = delta * max_speed * (repeat / time_to_max)**((1000+curve)/1000)
+  40:./tmk_core/common/mousekey.c ****  */
+  41:./tmk_core/common/mousekey.c **** /* milliseconds between the initial key press and first repeated motion event (0-2550) */
+  42:./tmk_core/common/mousekey.c **** uint8_t mk_delay = MOUSEKEY_DELAY/10;
+  43:./tmk_core/common/mousekey.c **** /* milliseconds between repeated motion events (0-255) */
+  44:./tmk_core/common/mousekey.c **** uint8_t mk_interval = MOUSEKEY_INTERVAL;
+  45:./tmk_core/common/mousekey.c **** /* steady speed (in action_delta units) applied each event (0-255) */
+  46:./tmk_core/common/mousekey.c **** uint8_t mk_max_speed = MOUSEKEY_MAX_SPEED;
+  47:./tmk_core/common/mousekey.c **** /* number of events (count) accelerating to steady speed (0-255) */
+  48:./tmk_core/common/mousekey.c **** uint8_t mk_time_to_max = MOUSEKEY_TIME_TO_MAX;
+  49:./tmk_core/common/mousekey.c **** /* ramp used to reach maximum pointer speed (NOT SUPPORTED) */
+  50:./tmk_core/common/mousekey.c **** //int8_t mk_curve = 0;
+  51:./tmk_core/common/mousekey.c **** /* wheel params */
+  52:./tmk_core/common/mousekey.c **** uint8_t mk_wheel_max_speed = MOUSEKEY_WHEEL_MAX_SPEED;
+  53:./tmk_core/common/mousekey.c **** uint8_t mk_wheel_time_to_max = MOUSEKEY_WHEEL_TIME_TO_MAX;
+  54:./tmk_core/common/mousekey.c **** 
+  55:./tmk_core/common/mousekey.c **** 
+  56:./tmk_core/common/mousekey.c **** static uint16_t last_timer = 0;
+  57:./tmk_core/common/mousekey.c **** 
+  58:./tmk_core/common/mousekey.c **** 
+  59:./tmk_core/common/mousekey.c **** static uint8_t move_unit(void)
+  60:./tmk_core/common/mousekey.c **** {
+  15               		.loc 1 60 1 view -0
+  16               		.cfi_startproc
+  17               	/* prologue: function */
+  18               	/* frame size = 0 */
+  19               	/* stack size = 0 */
+  20               	.L__stack_usage = 0
+  61:./tmk_core/common/mousekey.c ****     uint16_t unit;
+  21               		.loc 1 61 5 view .LVU1
+  62:./tmk_core/common/mousekey.c ****     if (mousekey_accel & (1<<0)) {
+  22               		.loc 1 62 5 view .LVU2
+  23               		.loc 1 62 24 is_stmt 0 view .LVU3
+  24 0000 8091 0000 		lds r24,mousekey_accel
+  25               		.loc 1 62 8 view .LVU4
+  26 0004 80FF      		sbrs r24,0
+  27 0006 00C0      		rjmp .L2
+  63:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_MOVE_DELTA * mk_max_speed)/4;
+  28               		.loc 1 63 9 is_stmt 1 view .LVU5
+  29               		.loc 1 63 37 is_stmt 0 view .LVU6
+  30 0008 6091 0000 		lds r22,mk_max_speed
+  31 000c 85E0      		ldi r24,lo8(5)
+  32 000e 689F      		mul r22,r24
+  33 0010 B001      		movw r22,r0
+  34 0012 1124      		clr __zero_reg__
+  35               		.loc 1 63 52 view .LVU7
+  36 0014 7595      		asr r23
+  37 0016 6795      		ror r22
+  38 0018 7595      		asr r23
+  39 001a 6795      		ror r22
+  40               	.LVL0:
+  41               	.L3:
+  64:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<1)) {
+  65:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_MOVE_DELTA * mk_max_speed)/2;
+  66:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+  67:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_MOVE_DELTA * mk_max_speed);
+  68:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat == 0) {
+  69:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA;
+  70:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat >= mk_time_to_max) {
+  71:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA * mk_max_speed;
+  72:./tmk_core/common/mousekey.c ****     } else {
+  73:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_MOVE_DELTA * mk_max_speed * mousekey_repeat) / mk_time_to_max;
+  74:./tmk_core/common/mousekey.c ****     }
+  75:./tmk_core/common/mousekey.c ****     return (unit > MOUSEKEY_MOVE_MAX ? MOUSEKEY_MOVE_MAX : (unit == 0 ? 1 : unit));
+  42               		.loc 1 75 5 is_stmt 1 view .LVU8
+  43               		.loc 1 75 58 is_stmt 0 view .LVU9
+  44 001c 6038      		cpi r22,-128
+  45 001e 7105      		cpc r23,__zero_reg__
+  46 0020 00F4      		brsh .L10
+  47               		.loc 1 75 58 discriminator 1 view .LVU10
+  48 0022 6115      		cp r22,__zero_reg__
+  49 0024 7105      		cpc r23,__zero_reg__
+  50 0026 01F0      		breq .L11
+  51               	.LVL1:
+  52               	.L6:
+  53               		.loc 1 75 58 discriminator 3 view .LVU11
+  54 0028 862F      		mov r24,r22
+  55 002a 0895      		ret
+  56               	.L2:
+  64:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<1)) {
+  57               		.loc 1 64 12 is_stmt 1 view .LVU12
+  64:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<1)) {
+  58               		.loc 1 64 15 is_stmt 0 view .LVU13
+  59 002c 81FF      		sbrs r24,1
+  60 002e 00C0      		rjmp .L4
+  65:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+  61               		.loc 1 65 9 is_stmt 1 view .LVU14
+  65:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+  62               		.loc 1 65 37 is_stmt 0 view .LVU15
+  63 0030 6091 0000 		lds r22,mk_max_speed
+  64 0034 85E0      		ldi r24,lo8(5)
+  65 0036 689F      		mul r22,r24
+  66 0038 B001      		movw r22,r0
+  67 003a 1124      		clr __zero_reg__
+  65:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+  68               		.loc 1 65 52 view .LVU16
+  69 003c 7595      		asr r23
+  70 003e 6795      		ror r22
+  71               	.LVL2:
+  65:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+  72               		.loc 1 65 52 view .LVU17
+  73 0040 00C0      		rjmp .L3
+  74               	.LVL3:
+  75               	.L4:
+  66:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_MOVE_DELTA * mk_max_speed);
+  76               		.loc 1 66 12 is_stmt 1 view .LVU18
+  67:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat == 0) {
+  77               		.loc 1 67 37 is_stmt 0 view .LVU19
+  78 0042 6091 0000 		lds r22,mk_max_speed
+  66:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_MOVE_DELTA * mk_max_speed);
+  79               		.loc 1 66 15 view .LVU20
+  80 0046 82FD      		sbrc r24,2
+  81 0048 00C0      		rjmp .L12
+  68:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA;
+  82               		.loc 1 68 12 is_stmt 1 view .LVU21
+  68:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA;
+  83               		.loc 1 68 32 is_stmt 0 view .LVU22
+  84 004a 8091 0000 		lds r24,mousekey_repeat
+  68:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA;
+  85               		.loc 1 68 15 view .LVU23
+  86 004e 8823      		tst r24
+  87 0050 01F0      		breq .L9
+  70:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA * mk_max_speed;
+  88               		.loc 1 70 12 is_stmt 1 view .LVU24
+  70:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA * mk_max_speed;
+  89               		.loc 1 70 32 is_stmt 0 view .LVU25
+  90 0052 9091 0000 		lds r25,mk_time_to_max
+  91 0056 6091 0000 		lds r22,mk_max_speed
+  70:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_MOVE_DELTA * mk_max_speed;
+  92               		.loc 1 70 15 view .LVU26
+  93 005a 8917      		cp r24,r25
+  94 005c 00F0      		brlo .L7
+  95               	.L12:
+  71:./tmk_core/common/mousekey.c ****     } else {
+  96               		.loc 1 71 9 is_stmt 1 view .LVU27
+  71:./tmk_core/common/mousekey.c ****     } else {
+  97               		.loc 1 71 36 is_stmt 0 view .LVU28
+  98 005e 85E0      		ldi r24,lo8(5)
+  99 0060 689F      		mul r22,r24
+ 100 0062 B001      		movw r22,r0
+ 101 0064 1124      		clr __zero_reg__
+ 102               	.LVL4:
+  71:./tmk_core/common/mousekey.c ****     } else {
+ 103               		.loc 1 71 36 view .LVU29
+ 104 0066 00C0      		rjmp .L3
+ 105               	.LVL5:
+ 106               	.L7:
+  73:./tmk_core/common/mousekey.c ****     }
+ 107               		.loc 1 73 9 is_stmt 1 view .LVU30
+  73:./tmk_core/common/mousekey.c ****     }
+ 108               		.loc 1 73 52 is_stmt 0 view .LVU31
+ 109 0068 869F      		mul r24,r22
+ 110 006a B001      		movw r22,r0
+ 111 006c 1124      		clr __zero_reg__
+ 112 006e 85E0      		ldi r24,lo8(5)
+ 113 0070 869F      		mul r24,r22
+ 114 0072 9001      		movw r18,r0
+ 115 0074 879F      		mul r24,r23
+ 116 0076 300D      		add r19,r0
+ 117 0078 1124      		clr __zero_reg__
+  73:./tmk_core/common/mousekey.c ****     }
+ 118               		.loc 1 73 71 view .LVU32
+ 119 007a 692F      		mov r22,r25
+ 120 007c 70E0      		ldi r23,0
+  73:./tmk_core/common/mousekey.c ****     }
+ 121               		.loc 1 73 14 view .LVU33
+ 122 007e C901      		movw r24,r18
+ 123 0080 0E94 0000 		call __divmodhi4
+ 124               	.LVL6:
+  73:./tmk_core/common/mousekey.c ****     }
+ 125               		.loc 1 73 14 view .LVU34
+ 126 0084 00C0      		rjmp .L3
+ 127               	.LVL7:
+ 128               	.L9:
+  69:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat >= mk_time_to_max) {
+ 129               		.loc 1 69 14 view .LVU35
+ 130 0086 65E0      		ldi r22,lo8(5)
+ 131 0088 70E0      		ldi r23,0
+ 132 008a 00C0      		rjmp .L6
+ 133               	.LVL8:
+ 134               	.L10:
+ 135               		.loc 1 75 58 view .LVU36
+ 136 008c 8FE7      		ldi r24,lo8(127)
+ 137 008e 0895      		ret
+ 138               	.L11:
+ 139 0090 81E0      		ldi r24,lo8(1)
+ 140               	/* epilogue start */
+  76:./tmk_core/common/mousekey.c **** }
+ 141               		.loc 1 76 1 view .LVU37
+ 142 0092 0895      		ret
+ 143               		.cfi_endproc
+ 144               	.LFE104:
+ 146               		.section	.text.wheel_unit,"ax",@progbits
+ 148               	wheel_unit:
+ 149               	.LFB105:
+  77:./tmk_core/common/mousekey.c **** 
+  78:./tmk_core/common/mousekey.c **** static uint8_t wheel_unit(void)
+  79:./tmk_core/common/mousekey.c **** {
+ 150               		.loc 1 79 1 is_stmt 1 view -0
+ 151               		.cfi_startproc
+ 152               	/* prologue: function */
+ 153               	/* frame size = 0 */
+ 154               	/* stack size = 0 */
+ 155               	.L__stack_usage = 0
+  80:./tmk_core/common/mousekey.c ****     uint16_t unit;
+ 156               		.loc 1 80 5 view .LVU39
+  81:./tmk_core/common/mousekey.c ****     if (mousekey_accel & (1<<0)) {
+ 157               		.loc 1 81 5 view .LVU40
+ 158               		.loc 1 81 24 is_stmt 0 view .LVU41
+ 159 0000 8091 0000 		lds r24,mousekey_accel
+ 160               		.loc 1 81 8 view .LVU42
+ 161 0004 80FF      		sbrs r24,0
+ 162 0006 00C0      		rjmp .L14
+  82:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed)/4;
+ 163               		.loc 1 82 9 is_stmt 1 view .LVU43
+ 164               		.loc 1 82 38 is_stmt 0 view .LVU44
+ 165 0008 6091 0000 		lds r22,mk_wheel_max_speed
+ 166 000c 70E0      		ldi r23,0
+ 167               		.loc 1 82 59 view .LVU45
+ 168 000e 7595      		asr r23
+ 169 0010 6795      		ror r22
+ 170 0012 7595      		asr r23
+ 171 0014 6795      		ror r22
+ 172               	.LVL9:
+ 173               	.L15:
+  83:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<1)) {
+  84:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed)/2;
+  85:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+  86:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed);
+  87:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat == 0) {
+  88:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA;
+  89:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat >= mk_wheel_time_to_max) {
+  90:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed;
+  91:./tmk_core/common/mousekey.c ****     } else {
+  92:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed * mousekey_repeat) / mk_wheel_time_to_max
+  93:./tmk_core/common/mousekey.c ****     }
+  94:./tmk_core/common/mousekey.c ****     return (unit > MOUSEKEY_WHEEL_MAX ? MOUSEKEY_WHEEL_MAX : (unit == 0 ? 1 : unit));
+ 174               		.loc 1 94 60 view .LVU46
+ 175 0016 6115      		cp r22,__zero_reg__
+ 176 0018 7105      		cpc r23,__zero_reg__
+ 177 001a 01F0      		breq .L24
+ 178               	.LVL10:
+ 179               	.L19:
+ 180               		.loc 1 94 60 discriminator 3 view .LVU47
+ 181 001c 862F      		mov r24,r22
+ 182 001e 0895      		ret
+ 183               	.L14:
+  83:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<1)) {
+ 184               		.loc 1 83 12 is_stmt 1 view .LVU48
+  83:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<1)) {
+ 185               		.loc 1 83 15 is_stmt 0 view .LVU49
+ 186 0020 81FF      		sbrs r24,1
+ 187 0022 00C0      		rjmp .L16
+  84:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+ 188               		.loc 1 84 9 is_stmt 1 view .LVU50
+  84:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+ 189               		.loc 1 84 38 is_stmt 0 view .LVU51
+ 190 0024 6091 0000 		lds r22,mk_wheel_max_speed
+ 191 0028 70E0      		ldi r23,0
+  84:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+ 192               		.loc 1 84 59 view .LVU52
+ 193 002a 7595      		asr r23
+ 194 002c 6795      		ror r22
+ 195               	.LVL11:
+  84:./tmk_core/common/mousekey.c ****     } else if (mousekey_accel & (1<<2)) {
+ 196               		.loc 1 84 59 view .LVU53
+ 197 002e 00C0      		rjmp .L15
+ 198               	.LVL12:
+ 199               	.L16:
+  85:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed);
+ 200               		.loc 1 85 12 is_stmt 1 view .LVU54
+  86:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat == 0) {
+ 201               		.loc 1 86 14 is_stmt 0 view .LVU55
+ 202 0030 6091 0000 		lds r22,mk_wheel_max_speed
+  85:./tmk_core/common/mousekey.c ****         unit = (MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed);
+ 203               		.loc 1 85 15 view .LVU56
+ 204 0034 82FD      		sbrc r24,2
+ 205 0036 00C0      		rjmp .L25
+  87:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA;
+ 206               		.loc 1 87 12 is_stmt 1 view .LVU57
+  87:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA;
+ 207               		.loc 1 87 32 is_stmt 0 view .LVU58
+ 208 0038 9091 0000 		lds r25,mousekey_repeat
+  87:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA;
+ 209               		.loc 1 87 15 view .LVU59
+ 210 003c 9923      		tst r25
+ 211 003e 01F0      		breq .L22
+  89:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed;
+ 212               		.loc 1 89 12 is_stmt 1 view .LVU60
+  89:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed;
+ 213               		.loc 1 89 32 is_stmt 0 view .LVU61
+ 214 0040 6091 0000 		lds r22,mk_wheel_time_to_max
+ 215 0044 8091 0000 		lds r24,mk_wheel_max_speed
+  89:./tmk_core/common/mousekey.c ****         unit = MOUSEKEY_WHEEL_DELTA * mk_wheel_max_speed;
+ 216               		.loc 1 89 15 view .LVU62
+ 217 0048 9617      		cp r25,r22
+ 218 004a 00F0      		brlo .L20
+  90:./tmk_core/common/mousekey.c ****     } else {
+ 219               		.loc 1 90 9 is_stmt 1 view .LVU63
+  90:./tmk_core/common/mousekey.c ****     } else {
+ 220               		.loc 1 90 14 is_stmt 0 view .LVU64
+ 221 004c 682F      		mov r22,r24
+ 222               	.L25:
+ 223 004e 70E0      		ldi r23,0
+ 224               	.LVL13:
+ 225               	.L18:
+ 226               		.loc 1 94 5 is_stmt 1 view .LVU65
+ 227               		.loc 1 94 60 is_stmt 0 view .LVU66
+ 228 0050 6038      		cpi r22,-128
+ 229 0052 7105      		cpc r23,__zero_reg__
+ 230 0054 00F0      		brlo .L15
+ 231 0056 8FE7      		ldi r24,lo8(127)
+ 232 0058 0895      		ret
+ 233               	.LVL14:
+ 234               	.L20:
+  92:./tmk_core/common/mousekey.c ****     }
+ 235               		.loc 1 92 9 is_stmt 1 view .LVU67
+  92:./tmk_core/common/mousekey.c ****     }
+ 236               		.loc 1 92 59 is_stmt 0 view .LVU68
+ 237 005a 899F      		mul r24,r25
+ 238 005c C001      		movw r24,r0
+ 239 005e 1124      		clr __zero_reg__
+  92:./tmk_core/common/mousekey.c ****     }
+ 240               		.loc 1 92 78 view .LVU69
+ 241 0060 70E0      		ldi r23,0
+  92:./tmk_core/common/mousekey.c ****     }
+ 242               		.loc 1 92 14 view .LVU70
+ 243 0062 0E94 0000 		call __divmodhi4
+ 244               	.LVL15:
+  92:./tmk_core/common/mousekey.c ****     }
+ 245               		.loc 1 92 14 view .LVU71
+ 246 0066 00C0      		rjmp .L18
+ 247               	.LVL16:
+ 248               	.L22:
+  88:./tmk_core/common/mousekey.c ****     } else if (mousekey_repeat >= mk_wheel_time_to_max) {
+ 249               		.loc 1 88 14 view .LVU72
+ 250 0068 61E0      		ldi r22,lo8(1)
+ 251 006a 70E0      		ldi r23,0
+ 252 006c 00C0      		rjmp .L19
+ 253               	.LVL17:
+ 254               	.L24:
+ 255               		.loc 1 94 60 view .LVU73
+ 256 006e 81E0      		ldi r24,lo8(1)
+ 257               	/* epilogue start */
+  95:./tmk_core/common/mousekey.c **** }
+ 258               		.loc 1 95 1 view .LVU74
+ 259 0070 0895      		ret
+ 260               		.cfi_endproc
+ 261               	.LFE105:
+ 263               		.section	.text.mousekey_on,"ax",@progbits
+ 264               	.global	mousekey_on
+ 266               	mousekey_on:
+ 267               	.LVL18:
+ 268               	.LFB107:
+  96:./tmk_core/common/mousekey.c **** 
+  97:./tmk_core/common/mousekey.c **** void mousekey_task(void)
+  98:./tmk_core/common/mousekey.c **** {
+  99:./tmk_core/common/mousekey.c ****     if (timer_elapsed(last_timer) < (mousekey_repeat ? mk_interval : mk_delay*10))
+ 100:./tmk_core/common/mousekey.c ****         return;
+ 101:./tmk_core/common/mousekey.c **** 
+ 102:./tmk_core/common/mousekey.c ****     if (mouse_report.x == 0 && mouse_report.y == 0 && mouse_report.v == 0 && mouse_report.h == 0)
+ 103:./tmk_core/common/mousekey.c ****         return;
+ 104:./tmk_core/common/mousekey.c **** 
+ 105:./tmk_core/common/mousekey.c ****     if (mousekey_repeat != UINT8_MAX)
+ 106:./tmk_core/common/mousekey.c ****         mousekey_repeat++;
+ 107:./tmk_core/common/mousekey.c **** 
+ 108:./tmk_core/common/mousekey.c **** 
+ 109:./tmk_core/common/mousekey.c ****     if (mouse_report.x > 0) mouse_report.x = move_unit();
+ 110:./tmk_core/common/mousekey.c ****     if (mouse_report.x < 0) mouse_report.x = move_unit() * -1;
+ 111:./tmk_core/common/mousekey.c ****     if (mouse_report.y > 0) mouse_report.y = move_unit();
+ 112:./tmk_core/common/mousekey.c ****     if (mouse_report.y < 0) mouse_report.y = move_unit() * -1;
+ 113:./tmk_core/common/mousekey.c **** 
+ 114:./tmk_core/common/mousekey.c ****     /* diagonal move [1/sqrt(2) = 0.7] */
+ 115:./tmk_core/common/mousekey.c ****     if (mouse_report.x && mouse_report.y) {
+ 116:./tmk_core/common/mousekey.c ****         mouse_report.x *= 0.7;
+ 117:./tmk_core/common/mousekey.c ****         mouse_report.y *= 0.7;
+ 118:./tmk_core/common/mousekey.c ****     }
+ 119:./tmk_core/common/mousekey.c **** 
+ 120:./tmk_core/common/mousekey.c ****     if (mouse_report.v > 0) mouse_report.v = wheel_unit();
+ 121:./tmk_core/common/mousekey.c ****     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
+ 122:./tmk_core/common/mousekey.c ****     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
+ 123:./tmk_core/common/mousekey.c ****     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+ 124:./tmk_core/common/mousekey.c **** 
+ 125:./tmk_core/common/mousekey.c ****     mousekey_send();
+ 126:./tmk_core/common/mousekey.c **** }
+ 127:./tmk_core/common/mousekey.c **** 
+ 128:./tmk_core/common/mousekey.c **** void mousekey_on(uint8_t code)
+ 129:./tmk_core/common/mousekey.c **** {
+ 269               		.loc 1 129 1 is_stmt 1 view -0
+ 270               		.cfi_startproc
+ 271               	/* prologue: function */
+ 272               	/* frame size = 0 */
+ 273               	/* stack size = 0 */
+ 274               	.L__stack_usage = 0
+ 130:./tmk_core/common/mousekey.c ****     if      (code == KC_MS_UP)       mouse_report.y = move_unit() * -1;
+ 275               		.loc 1 130 5 view .LVU76
+ 276               		.loc 1 130 13 is_stmt 0 view .LVU77
+ 277 0000 803F      		cpi r24,lo8(-16)
+ 278 0002 01F4      		brne .L27
+ 279               		.loc 1 130 38 is_stmt 1 discriminator 1 view .LVU78
+ 280               		.loc 1 130 55 is_stmt 0 discriminator 1 view .LVU79
+ 281 0004 0E94 0000 		call move_unit
+ 282               	.LVL19:
+ 283               		.loc 1 130 53 discriminator 1 view .LVU80
+ 284 0008 8195      		neg r24
+ 285               	.L43:
+ 131:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_DOWN)     mouse_report.y = move_unit();
+ 286               		.loc 1 131 53 discriminator 1 view .LVU81
+ 287 000a 8093 0000 		sts mouse_report+2,r24
+ 288 000e 0895      		ret
+ 289               	.LVL20:
+ 290               	.L27:
+ 291               		.loc 1 131 10 is_stmt 1 view .LVU82
+ 292               		.loc 1 131 13 is_stmt 0 view .LVU83
+ 293 0010 813F      		cpi r24,lo8(-15)
+ 294 0012 01F4      		brne .L29
+ 295               		.loc 1 131 38 is_stmt 1 discriminator 1 view .LVU84
+ 296               		.loc 1 131 55 is_stmt 0 discriminator 1 view .LVU85
+ 297 0014 0E94 0000 		call move_unit
+ 298               	.LVL21:
+ 299               		.loc 1 131 55 discriminator 1 view .LVU86
+ 300 0018 00C0      		rjmp .L43
+ 301               	.LVL22:
+ 302               	.L29:
+ 132:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_LEFT)     mouse_report.x = move_unit() * -1;
+ 303               		.loc 1 132 10 is_stmt 1 view .LVU87
+ 304               		.loc 1 132 13 is_stmt 0 view .LVU88
+ 305 001a 823F      		cpi r24,lo8(-14)
+ 306 001c 01F4      		brne .L30
+ 307               		.loc 1 132 38 is_stmt 1 discriminator 1 view .LVU89
+ 308               		.loc 1 132 55 is_stmt 0 discriminator 1 view .LVU90
+ 309 001e 0E94 0000 		call move_unit
+ 310               	.LVL23:
+ 311               		.loc 1 132 53 discriminator 1 view .LVU91
+ 312 0022 8195      		neg r24
+ 313               	.L45:
+ 133:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT)    mouse_report.x = move_unit();
+ 314               		.loc 1 133 53 discriminator 1 view .LVU92
+ 315 0024 8093 0000 		sts mouse_report+1,r24
+ 316 0028 0895      		ret
+ 317               	.LVL24:
+ 318               	.L30:
+ 319               		.loc 1 133 10 is_stmt 1 view .LVU93
+ 320               		.loc 1 133 13 is_stmt 0 view .LVU94
+ 321 002a 833F      		cpi r24,lo8(-13)
+ 322 002c 01F4      		brne .L31
+ 323               		.loc 1 133 38 is_stmt 1 discriminator 1 view .LVU95
+ 324               		.loc 1 133 55 is_stmt 0 discriminator 1 view .LVU96
+ 325 002e 0E94 0000 		call move_unit
+ 326               	.LVL25:
+ 327               		.loc 1 133 55 discriminator 1 view .LVU97
+ 328 0032 00C0      		rjmp .L45
+ 329               	.LVL26:
+ 330               	.L31:
+ 134:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_UP)    mouse_report.v = wheel_unit();
+ 331               		.loc 1 134 10 is_stmt 1 view .LVU98
+ 332               		.loc 1 134 13 is_stmt 0 view .LVU99
+ 333 0034 893F      		cpi r24,lo8(-7)
+ 334 0036 01F4      		brne .L32
+ 335               		.loc 1 134 38 is_stmt 1 discriminator 1 view .LVU100
+ 336               		.loc 1 134 55 is_stmt 0 discriminator 1 view .LVU101
+ 337 0038 0E94 0000 		call wheel_unit
+ 338               	.LVL27:
+ 339               	.L47:
+ 135:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN)  mouse_report.v = wheel_unit() * -1;
+ 340               		.loc 1 135 53 discriminator 1 view .LVU102
+ 341 003c 8093 0000 		sts mouse_report+3,r24
+ 342 0040 0895      		ret
+ 343               	.LVL28:
+ 344               	.L32:
+ 345               		.loc 1 135 10 is_stmt 1 view .LVU103
+ 346               		.loc 1 135 13 is_stmt 0 view .LVU104
+ 347 0042 8A3F      		cpi r24,lo8(-6)
+ 348 0044 01F4      		brne .L33
+ 349               		.loc 1 135 38 is_stmt 1 discriminator 1 view .LVU105
+ 350               		.loc 1 135 55 is_stmt 0 discriminator 1 view .LVU106
+ 351 0046 0E94 0000 		call wheel_unit
+ 352               	.LVL29:
+ 353               		.loc 1 135 53 discriminator 1 view .LVU107
+ 354 004a 8195      		neg r24
+ 355 004c 00C0      		rjmp .L47
+ 356               	.LVL30:
+ 357               	.L33:
+ 136:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_LEFT)  mouse_report.h = wheel_unit() * -1;
+ 358               		.loc 1 136 10 is_stmt 1 view .LVU108
+ 359               		.loc 1 136 13 is_stmt 0 view .LVU109
+ 360 004e 8B3F      		cpi r24,lo8(-5)
+ 361 0050 01F4      		brne .L34
+ 362               		.loc 1 136 38 is_stmt 1 discriminator 1 view .LVU110
+ 363               		.loc 1 136 55 is_stmt 0 discriminator 1 view .LVU111
+ 364 0052 0E94 0000 		call wheel_unit
+ 365               	.LVL31:
+ 366               		.loc 1 136 53 discriminator 1 view .LVU112
+ 367 0056 8195      		neg r24
+ 368               	.L48:
+ 137:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT) mouse_report.h = wheel_unit();
+ 369               		.loc 1 137 53 discriminator 1 view .LVU113
+ 370 0058 8093 0000 		sts mouse_report+4,r24
+ 371 005c 0895      		ret
+ 372               	.LVL32:
+ 373               	.L34:
+ 374               		.loc 1 137 10 is_stmt 1 view .LVU114
+ 375               		.loc 1 137 13 is_stmt 0 view .LVU115
+ 376 005e 8C3F      		cpi r24,lo8(-4)
+ 377 0060 01F4      		brne .L35
+ 378               		.loc 1 137 38 is_stmt 1 discriminator 1 view .LVU116
+ 379               		.loc 1 137 55 is_stmt 0 discriminator 1 view .LVU117
+ 380 0062 0E94 0000 		call wheel_unit
+ 381               	.LVL33:
+ 382               		.loc 1 137 55 discriminator 1 view .LVU118
+ 383 0066 00C0      		rjmp .L48
+ 384               	.LVL34:
+ 385               	.L35:
+ 138:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN1)     mouse_report.buttons |= MOUSE_BTN1;
+ 386               		.loc 1 138 10 is_stmt 1 view .LVU119
+ 387               		.loc 1 138 13 is_stmt 0 view .LVU120
+ 388 0068 843F      		cpi r24,lo8(-12)
+ 389 006a 01F4      		brne .L36
+ 390               		.loc 1 138 38 is_stmt 1 discriminator 1 view .LVU121
+ 391               		.loc 1 138 59 is_stmt 0 discriminator 1 view .LVU122
+ 392 006c 8091 0000 		lds r24,mouse_report
+ 393               	.LVL35:
+ 394               		.loc 1 138 59 discriminator 1 view .LVU123
+ 395 0070 8160      		ori r24,lo8(1)
+ 396               	.L46:
+ 139:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2)     mouse_report.buttons |= MOUSE_BTN2;
+ 140:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3)     mouse_report.buttons |= MOUSE_BTN3;
+ 141:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4)     mouse_report.buttons |= MOUSE_BTN4;
+ 142:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5)     mouse_report.buttons |= MOUSE_BTN5;
+ 397               		.loc 1 142 59 discriminator 1 view .LVU124
+ 398 0072 8093 0000 		sts mouse_report,r24
+ 399 0076 0895      		ret
+ 400               	.LVL36:
+ 401               	.L36:
+ 139:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2)     mouse_report.buttons |= MOUSE_BTN2;
+ 402               		.loc 1 139 10 is_stmt 1 view .LVU125
+ 139:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2)     mouse_report.buttons |= MOUSE_BTN2;
+ 403               		.loc 1 139 13 is_stmt 0 view .LVU126
+ 404 0078 853F      		cpi r24,lo8(-11)
+ 405 007a 01F4      		brne .L37
+ 139:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2)     mouse_report.buttons |= MOUSE_BTN2;
+ 406               		.loc 1 139 38 is_stmt 1 discriminator 1 view .LVU127
+ 139:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2)     mouse_report.buttons |= MOUSE_BTN2;
+ 407               		.loc 1 139 59 is_stmt 0 discriminator 1 view .LVU128
+ 408 007c 8091 0000 		lds r24,mouse_report
+ 409               	.LVL37:
+ 139:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2)     mouse_report.buttons |= MOUSE_BTN2;
+ 410               		.loc 1 139 59 discriminator 1 view .LVU129
+ 411 0080 8260      		ori r24,lo8(2)
+ 412 0082 00C0      		rjmp .L46
+ 413               	.LVL38:
+ 414               	.L37:
+ 140:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4)     mouse_report.buttons |= MOUSE_BTN4;
+ 415               		.loc 1 140 10 is_stmt 1 view .LVU130
+ 140:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4)     mouse_report.buttons |= MOUSE_BTN4;
+ 416               		.loc 1 140 13 is_stmt 0 view .LVU131
+ 417 0084 863F      		cpi r24,lo8(-10)
+ 418 0086 01F4      		brne .L38
+ 140:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4)     mouse_report.buttons |= MOUSE_BTN4;
+ 419               		.loc 1 140 38 is_stmt 1 discriminator 1 view .LVU132
+ 140:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4)     mouse_report.buttons |= MOUSE_BTN4;
+ 420               		.loc 1 140 59 is_stmt 0 discriminator 1 view .LVU133
+ 421 0088 8091 0000 		lds r24,mouse_report
+ 422               	.LVL39:
+ 140:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4)     mouse_report.buttons |= MOUSE_BTN4;
+ 423               		.loc 1 140 59 discriminator 1 view .LVU134
+ 424 008c 8460      		ori r24,lo8(4)
+ 425 008e 00C0      		rjmp .L46
+ 426               	.LVL40:
+ 427               	.L38:
+ 141:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5)     mouse_report.buttons |= MOUSE_BTN5;
+ 428               		.loc 1 141 10 is_stmt 1 view .LVU135
+ 141:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5)     mouse_report.buttons |= MOUSE_BTN5;
+ 429               		.loc 1 141 13 is_stmt 0 view .LVU136
+ 430 0090 873F      		cpi r24,lo8(-9)
+ 431 0092 01F4      		brne .L39
+ 141:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5)     mouse_report.buttons |= MOUSE_BTN5;
+ 432               		.loc 1 141 38 is_stmt 1 discriminator 1 view .LVU137
+ 141:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5)     mouse_report.buttons |= MOUSE_BTN5;
+ 433               		.loc 1 141 59 is_stmt 0 discriminator 1 view .LVU138
+ 434 0094 8091 0000 		lds r24,mouse_report
+ 435               	.LVL41:
+ 141:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5)     mouse_report.buttons |= MOUSE_BTN5;
+ 436               		.loc 1 141 59 discriminator 1 view .LVU139
+ 437 0098 8860      		ori r24,lo8(8)
+ 438 009a 00C0      		rjmp .L46
+ 439               	.LVL42:
+ 440               	.L39:
+ 441               		.loc 1 142 10 is_stmt 1 view .LVU140
+ 442               		.loc 1 142 13 is_stmt 0 view .LVU141
+ 443 009c 883F      		cpi r24,lo8(-8)
+ 444 009e 01F4      		brne .L40
+ 445               		.loc 1 142 38 is_stmt 1 discriminator 1 view .LVU142
+ 446               		.loc 1 142 59 is_stmt 0 discriminator 1 view .LVU143
+ 447 00a0 8091 0000 		lds r24,mouse_report
+ 448               	.LVL43:
+ 449               		.loc 1 142 59 discriminator 1 view .LVU144
+ 450 00a4 8061      		ori r24,lo8(16)
+ 451 00a6 00C0      		rjmp .L46
+ 452               	.LVL44:
+ 453               	.L40:
+ 143:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0)   mousekey_accel |= (1<<0);
+ 454               		.loc 1 143 10 is_stmt 1 view .LVU145
+ 455               		.loc 1 143 13 is_stmt 0 view .LVU146
+ 456 00a8 8D3F      		cpi r24,lo8(-3)
+ 457 00aa 01F4      		brne .L41
+ 458               		.loc 1 143 38 is_stmt 1 discriminator 1 view .LVU147
+ 459               		.loc 1 143 53 is_stmt 0 discriminator 1 view .LVU148
+ 460 00ac 8091 0000 		lds r24,mousekey_accel
+ 461               	.LVL45:
+ 462               		.loc 1 143 53 discriminator 1 view .LVU149
+ 463 00b0 8160      		ori r24,lo8(1)
+ 464               	.L44:
+ 144:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1)   mousekey_accel |= (1<<1);
+ 145:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2)   mousekey_accel |= (1<<2);
+ 465               		.loc 1 145 53 discriminator 1 view .LVU150
+ 466 00b2 8093 0000 		sts mousekey_accel,r24
+ 467               	.L26:
+ 468               	/* epilogue start */
+ 146:./tmk_core/common/mousekey.c **** }
+ 469               		.loc 1 146 1 view .LVU151
+ 470 00b6 0895      		ret
+ 471               	.LVL46:
+ 472               	.L41:
+ 144:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1)   mousekey_accel |= (1<<1);
+ 473               		.loc 1 144 10 is_stmt 1 view .LVU152
+ 144:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1)   mousekey_accel |= (1<<1);
+ 474               		.loc 1 144 13 is_stmt 0 view .LVU153
+ 475 00b8 8E3F      		cpi r24,lo8(-2)
+ 476 00ba 01F4      		brne .L42
+ 144:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1)   mousekey_accel |= (1<<1);
+ 477               		.loc 1 144 38 is_stmt 1 discriminator 1 view .LVU154
+ 144:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1)   mousekey_accel |= (1<<1);
+ 478               		.loc 1 144 53 is_stmt 0 discriminator 1 view .LVU155
+ 479 00bc 8091 0000 		lds r24,mousekey_accel
+ 480               	.LVL47:
+ 144:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1)   mousekey_accel |= (1<<1);
+ 481               		.loc 1 144 53 discriminator 1 view .LVU156
+ 482 00c0 8260      		ori r24,lo8(2)
+ 483 00c2 00C0      		rjmp .L44
+ 484               	.LVL48:
+ 485               	.L42:
+ 145:./tmk_core/common/mousekey.c **** }
+ 486               		.loc 1 145 10 is_stmt 1 view .LVU157
+ 145:./tmk_core/common/mousekey.c **** }
+ 487               		.loc 1 145 13 is_stmt 0 view .LVU158
+ 488 00c4 8F3F      		cpi r24,lo8(-1)
+ 489 00c6 01F4      		brne .L26
+ 145:./tmk_core/common/mousekey.c **** }
+ 490               		.loc 1 145 38 is_stmt 1 discriminator 1 view .LVU159
+ 145:./tmk_core/common/mousekey.c **** }
+ 491               		.loc 1 145 53 is_stmt 0 discriminator 1 view .LVU160
+ 492 00c8 8091 0000 		lds r24,mousekey_accel
+ 493               	.LVL49:
+ 145:./tmk_core/common/mousekey.c **** }
+ 494               		.loc 1 145 53 discriminator 1 view .LVU161
+ 495 00cc 8460      		ori r24,lo8(4)
+ 496 00ce 00C0      		rjmp .L44
+ 497               		.cfi_endproc
+ 498               	.LFE107:
+ 500               		.section	.text.mousekey_off,"ax",@progbits
+ 501               	.global	mousekey_off
+ 503               	mousekey_off:
+ 504               	.LVL50:
+ 505               	.LFB108:
+ 147:./tmk_core/common/mousekey.c **** 
+ 148:./tmk_core/common/mousekey.c **** void mousekey_off(uint8_t code)
+ 149:./tmk_core/common/mousekey.c **** {
+ 506               		.loc 1 149 1 is_stmt 1 view -0
+ 507               		.cfi_startproc
+ 508               	/* prologue: function */
+ 509               	/* frame size = 0 */
+ 510               	/* stack size = 0 */
+ 511               	.L__stack_usage = 0
+ 150:./tmk_core/common/mousekey.c ****     if      (code == KC_MS_UP       && mouse_report.y < 0) mouse_report.y = 0;
+ 512               		.loc 1 150 5 view .LVU163
+ 513 0000 9091 0000 		lds r25,mouse_report+1
+ 514               		.loc 1 150 13 is_stmt 0 view .LVU164
+ 515 0004 803F      		cpi r24,lo8(-16)
+ 516 0006 01F4      		brne .L50
+ 517               		.loc 1 150 37 discriminator 1 view .LVU165
+ 518 0008 8091 0000 		lds r24,mouse_report+2
+ 519               	.LVL51:
+ 520               		.loc 1 150 37 discriminator 1 view .LVU166
+ 521 000c 87FD      		sbrc r24,7
+ 522               	.L53:
+ 523               		.loc 1 150 60 is_stmt 1 discriminator 2 view .LVU167
+ 524               		.loc 1 150 75 is_stmt 0 discriminator 2 view .LVU168
+ 525 000e 1092 0000 		sts mouse_report+2,__zero_reg__
+ 526               	.L51:
+ 151:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_DOWN     && mouse_report.y > 0) mouse_report.y = 0;
+ 152:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_LEFT     && mouse_report.x < 0) mouse_report.x = 0;
+ 153:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT    && mouse_report.x > 0) mouse_report.x = 0;
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_UP    && mouse_report.v > 0) mouse_report.v = 0;
+ 155:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_LEFT  && mouse_report.h < 0) mouse_report.h = 0;
+ 157:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 158:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN1) mouse_report.buttons &= ~MOUSE_BTN1;
+ 159:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2) mouse_report.buttons &= ~MOUSE_BTN2;
+ 160:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3) mouse_report.buttons &= ~MOUSE_BTN3;
+ 161:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4) mouse_report.buttons &= ~MOUSE_BTN4;
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5) mouse_report.buttons &= ~MOUSE_BTN5;
+ 163:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 164:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1) mousekey_accel &= ~(1<<1);
+ 165:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2) mousekey_accel &= ~(1<<2);
+ 166:./tmk_core/common/mousekey.c **** 
+ 167:./tmk_core/common/mousekey.c ****     if (mouse_report.x == 0 && mouse_report.y == 0 && mouse_report.v == 0 && mouse_report.h == 0)
+ 527               		.loc 1 167 5 is_stmt 1 view .LVU169
+ 528               		.loc 1 167 8 is_stmt 0 view .LVU170
+ 529 0012 9923      		tst r25
+ 530 0014 01F0      		breq .L55
+ 531               	.L49:
+ 532               	/* epilogue start */
+ 168:./tmk_core/common/mousekey.c ****         mousekey_repeat = 0;
+ 169:./tmk_core/common/mousekey.c **** }
+ 533               		.loc 1 169 1 view .LVU171
+ 534 0016 0895      		ret
+ 535               	.LVL52:
+ 536               	.L50:
+ 151:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_DOWN     && mouse_report.y > 0) mouse_report.y = 0;
+ 537               		.loc 1 151 10 is_stmt 1 view .LVU172
+ 151:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_DOWN     && mouse_report.y > 0) mouse_report.y = 0;
+ 538               		.loc 1 151 13 is_stmt 0 view .LVU173
+ 539 0018 813F      		cpi r24,lo8(-15)
+ 540 001a 01F4      		brne .L52
+ 151:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_DOWN     && mouse_report.y > 0) mouse_report.y = 0;
+ 541               		.loc 1 151 37 discriminator 1 view .LVU174
+ 542 001c 8091 0000 		lds r24,mouse_report+2
+ 543               	.LVL53:
+ 151:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_DOWN     && mouse_report.y > 0) mouse_report.y = 0;
+ 544               		.loc 1 151 37 discriminator 1 view .LVU175
+ 545 0020 1816      		cp __zero_reg__,r24
+ 546 0022 04F0      		brlt .L53
+ 547 0024 00C0      		rjmp .L51
+ 548               	.LVL54:
+ 549               	.L52:
+ 152:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT    && mouse_report.x > 0) mouse_report.x = 0;
+ 550               		.loc 1 152 10 is_stmt 1 view .LVU176
+ 152:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT    && mouse_report.x > 0) mouse_report.x = 0;
+ 551               		.loc 1 152 13 is_stmt 0 view .LVU177
+ 552 0026 823F      		cpi r24,lo8(-14)
+ 553 0028 01F4      		brne .L54
+ 152:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT    && mouse_report.x > 0) mouse_report.x = 0;
+ 554               		.loc 1 152 37 discriminator 1 view .LVU178
+ 555 002a 97FF      		sbrs r25,7
+ 556 002c 00C0      		rjmp .L51
+ 557               	.L57:
+ 152:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT    && mouse_report.x > 0) mouse_report.x = 0;
+ 558               		.loc 1 152 60 is_stmt 1 discriminator 2 view .LVU179
+ 152:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_RIGHT    && mouse_report.x > 0) mouse_report.x = 0;
+ 559               		.loc 1 152 75 is_stmt 0 discriminator 2 view .LVU180
+ 560 002e 1092 0000 		sts mouse_report+1,__zero_reg__
+ 561               	.LVL55:
+ 562               	.L55:
+ 167:./tmk_core/common/mousekey.c ****         mousekey_repeat = 0;
+ 563               		.loc 1 167 5 is_stmt 1 view .LVU181
+ 167:./tmk_core/common/mousekey.c ****         mousekey_repeat = 0;
+ 564               		.loc 1 167 75 is_stmt 0 view .LVU182
+ 565 0032 8091 0000 		lds r24,mouse_report+2
+ 566 0036 9091 0000 		lds r25,mouse_report+3
+ 567 003a 892B      		or r24,r25
+ 568 003c 9091 0000 		lds r25,mouse_report+4
+ 569 0040 892B      		or r24,r25
+ 570 0042 01F4      		brne .L49
+ 168:./tmk_core/common/mousekey.c ****         mousekey_repeat = 0;
+ 571               		.loc 1 168 9 is_stmt 1 view .LVU183
+ 168:./tmk_core/common/mousekey.c ****         mousekey_repeat = 0;
+ 572               		.loc 1 168 25 is_stmt 0 view .LVU184
+ 573 0044 1092 0000 		sts mousekey_repeat,__zero_reg__
+ 574               		.loc 1 169 1 view .LVU185
+ 575 0048 0895      		ret
+ 576               	.LVL56:
+ 577               	.L54:
+ 153:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_UP    && mouse_report.v > 0) mouse_report.v = 0;
+ 578               		.loc 1 153 10 is_stmt 1 view .LVU186
+ 153:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_UP    && mouse_report.v > 0) mouse_report.v = 0;
+ 579               		.loc 1 153 13 is_stmt 0 view .LVU187
+ 580 004a 833F      		cpi r24,lo8(-13)
+ 581 004c 01F4      		brne .L56
+ 153:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_UP    && mouse_report.v > 0) mouse_report.v = 0;
+ 582               		.loc 1 153 37 discriminator 1 view .LVU188
+ 583 004e 1916      		cp __zero_reg__,r25
+ 584 0050 04F0      		brlt .L57
+ 585 0052 00C0      		rjmp .L51
+ 586               	.L56:
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 587               		.loc 1 154 10 is_stmt 1 view .LVU189
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 588               		.loc 1 154 13 is_stmt 0 view .LVU190
+ 589 0054 893F      		cpi r24,lo8(-7)
+ 590 0056 01F4      		brne .L58
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 591               		.loc 1 154 37 discriminator 1 view .LVU191
+ 592 0058 8091 0000 		lds r24,mouse_report+3
+ 593               	.LVL57:
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 594               		.loc 1 154 37 discriminator 1 view .LVU192
+ 595 005c 1816      		cp __zero_reg__,r24
+ 596 005e 04F4      		brge .L51
+ 597               	.L60:
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 598               		.loc 1 154 60 is_stmt 1 discriminator 2 view .LVU193
+ 154:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_DOWN  && mouse_report.v < 0) mouse_report.v = 0;
+ 599               		.loc 1 154 75 is_stmt 0 discriminator 2 view .LVU194
+ 600 0060 1092 0000 		sts mouse_report+3,__zero_reg__
+ 601 0064 00C0      		rjmp .L51
+ 602               	.LVL58:
+ 603               	.L58:
+ 155:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_LEFT  && mouse_report.h < 0) mouse_report.h = 0;
+ 604               		.loc 1 155 10 is_stmt 1 view .LVU195
+ 155:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_LEFT  && mouse_report.h < 0) mouse_report.h = 0;
+ 605               		.loc 1 155 13 is_stmt 0 view .LVU196
+ 606 0066 8A3F      		cpi r24,lo8(-6)
+ 607 0068 01F4      		brne .L59
+ 155:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_LEFT  && mouse_report.h < 0) mouse_report.h = 0;
+ 608               		.loc 1 155 37 discriminator 1 view .LVU197
+ 609 006a 8091 0000 		lds r24,mouse_report+3
+ 610               	.LVL59:
+ 155:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_LEFT  && mouse_report.h < 0) mouse_report.h = 0;
+ 611               		.loc 1 155 37 discriminator 1 view .LVU198
+ 612 006e 87FF      		sbrs r24,7
+ 613 0070 00C0      		rjmp .L51
+ 614 0072 00C0      		rjmp .L60
+ 615               	.LVL60:
+ 616               	.L59:
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 617               		.loc 1 156 10 is_stmt 1 view .LVU199
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 618               		.loc 1 156 13 is_stmt 0 view .LVU200
+ 619 0074 8B3F      		cpi r24,lo8(-5)
+ 620 0076 01F4      		brne .L61
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 621               		.loc 1 156 37 discriminator 1 view .LVU201
+ 622 0078 8091 0000 		lds r24,mouse_report+4
+ 623               	.LVL61:
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 624               		.loc 1 156 37 discriminator 1 view .LVU202
+ 625 007c 87FF      		sbrs r24,7
+ 626 007e 00C0      		rjmp .L51
+ 627               	.L63:
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 628               		.loc 1 156 60 is_stmt 1 discriminator 2 view .LVU203
+ 156:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_WH_RIGHT && mouse_report.h > 0) mouse_report.h = 0;
+ 629               		.loc 1 156 75 is_stmt 0 discriminator 2 view .LVU204
+ 630 0080 1092 0000 		sts mouse_report+4,__zero_reg__
+ 631 0084 00C0      		rjmp .L51
+ 632               	.LVL62:
+ 633               	.L61:
+ 157:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN1) mouse_report.buttons &= ~MOUSE_BTN1;
+ 634               		.loc 1 157 10 is_stmt 1 view .LVU205
+ 157:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN1) mouse_report.buttons &= ~MOUSE_BTN1;
+ 635               		.loc 1 157 13 is_stmt 0 view .LVU206
+ 636 0086 8C3F      		cpi r24,lo8(-4)
+ 637 0088 01F4      		brne .L62
+ 157:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN1) mouse_report.buttons &= ~MOUSE_BTN1;
+ 638               		.loc 1 157 37 discriminator 1 view .LVU207
+ 639 008a 8091 0000 		lds r24,mouse_report+4
+ 640               	.LVL63:
+ 157:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN1) mouse_report.buttons &= ~MOUSE_BTN1;
+ 641               		.loc 1 157 37 discriminator 1 view .LVU208
+ 642 008e 1816      		cp __zero_reg__,r24
+ 643 0090 04F0      		brlt .L63
+ 644 0092 00C0      		rjmp .L51
+ 645               	.LVL64:
+ 646               	.L62:
+ 158:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2) mouse_report.buttons &= ~MOUSE_BTN2;
+ 647               		.loc 1 158 10 is_stmt 1 view .LVU209
+ 158:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2) mouse_report.buttons &= ~MOUSE_BTN2;
+ 648               		.loc 1 158 13 is_stmt 0 view .LVU210
+ 649 0094 843F      		cpi r24,lo8(-12)
+ 650 0096 01F4      		brne .L64
+ 158:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2) mouse_report.buttons &= ~MOUSE_BTN2;
+ 651               		.loc 1 158 34 is_stmt 1 discriminator 1 view .LVU211
+ 158:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2) mouse_report.buttons &= ~MOUSE_BTN2;
+ 652               		.loc 1 158 55 is_stmt 0 discriminator 1 view .LVU212
+ 653 0098 8091 0000 		lds r24,mouse_report
+ 654               	.LVL65:
+ 158:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN2) mouse_report.buttons &= ~MOUSE_BTN2;
+ 655               		.loc 1 158 55 discriminator 1 view .LVU213
+ 656 009c 8E7F      		andi r24,lo8(-2)
+ 657               	.L77:
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 658               		.loc 1 162 55 discriminator 1 view .LVU214
+ 659 009e 8093 0000 		sts mouse_report,r24
+ 660 00a2 00C0      		rjmp .L51
+ 661               	.LVL66:
+ 662               	.L64:
+ 159:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3) mouse_report.buttons &= ~MOUSE_BTN3;
+ 663               		.loc 1 159 10 is_stmt 1 view .LVU215
+ 159:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3) mouse_report.buttons &= ~MOUSE_BTN3;
+ 664               		.loc 1 159 13 is_stmt 0 view .LVU216
+ 665 00a4 853F      		cpi r24,lo8(-11)
+ 666 00a6 01F4      		brne .L65
+ 159:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3) mouse_report.buttons &= ~MOUSE_BTN3;
+ 667               		.loc 1 159 34 is_stmt 1 discriminator 1 view .LVU217
+ 159:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3) mouse_report.buttons &= ~MOUSE_BTN3;
+ 668               		.loc 1 159 55 is_stmt 0 discriminator 1 view .LVU218
+ 669 00a8 8091 0000 		lds r24,mouse_report
+ 670               	.LVL67:
+ 159:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN3) mouse_report.buttons &= ~MOUSE_BTN3;
+ 671               		.loc 1 159 55 discriminator 1 view .LVU219
+ 672 00ac 8D7F      		andi r24,lo8(-3)
+ 673 00ae 00C0      		rjmp .L77
+ 674               	.LVL68:
+ 675               	.L65:
+ 160:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4) mouse_report.buttons &= ~MOUSE_BTN4;
+ 676               		.loc 1 160 10 is_stmt 1 view .LVU220
+ 160:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4) mouse_report.buttons &= ~MOUSE_BTN4;
+ 677               		.loc 1 160 13 is_stmt 0 view .LVU221
+ 678 00b0 863F      		cpi r24,lo8(-10)
+ 679 00b2 01F4      		brne .L66
+ 160:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4) mouse_report.buttons &= ~MOUSE_BTN4;
+ 680               		.loc 1 160 34 is_stmt 1 discriminator 1 view .LVU222
+ 160:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4) mouse_report.buttons &= ~MOUSE_BTN4;
+ 681               		.loc 1 160 55 is_stmt 0 discriminator 1 view .LVU223
+ 682 00b4 8091 0000 		lds r24,mouse_report
+ 683               	.LVL69:
+ 160:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN4) mouse_report.buttons &= ~MOUSE_BTN4;
+ 684               		.loc 1 160 55 discriminator 1 view .LVU224
+ 685 00b8 8B7F      		andi r24,lo8(-5)
+ 686 00ba 00C0      		rjmp .L77
+ 687               	.LVL70:
+ 688               	.L66:
+ 161:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5) mouse_report.buttons &= ~MOUSE_BTN5;
+ 689               		.loc 1 161 10 is_stmt 1 view .LVU225
+ 161:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5) mouse_report.buttons &= ~MOUSE_BTN5;
+ 690               		.loc 1 161 13 is_stmt 0 view .LVU226
+ 691 00bc 873F      		cpi r24,lo8(-9)
+ 692 00be 01F4      		brne .L67
+ 161:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5) mouse_report.buttons &= ~MOUSE_BTN5;
+ 693               		.loc 1 161 34 is_stmt 1 discriminator 1 view .LVU227
+ 161:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5) mouse_report.buttons &= ~MOUSE_BTN5;
+ 694               		.loc 1 161 55 is_stmt 0 discriminator 1 view .LVU228
+ 695 00c0 8091 0000 		lds r24,mouse_report
+ 696               	.LVL71:
+ 161:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_BTN5) mouse_report.buttons &= ~MOUSE_BTN5;
+ 697               		.loc 1 161 55 discriminator 1 view .LVU229
+ 698 00c4 877F      		andi r24,lo8(-9)
+ 699 00c6 00C0      		rjmp .L77
+ 700               	.LVL72:
+ 701               	.L67:
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 702               		.loc 1 162 10 is_stmt 1 view .LVU230
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 703               		.loc 1 162 13 is_stmt 0 view .LVU231
+ 704 00c8 883F      		cpi r24,lo8(-8)
+ 705 00ca 01F4      		brne .L68
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 706               		.loc 1 162 34 is_stmt 1 discriminator 1 view .LVU232
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 707               		.loc 1 162 55 is_stmt 0 discriminator 1 view .LVU233
+ 708 00cc 8091 0000 		lds r24,mouse_report
+ 709               	.LVL73:
+ 162:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL0) mousekey_accel &= ~(1<<0);
+ 710               		.loc 1 162 55 discriminator 1 view .LVU234
+ 711 00d0 8F7E      		andi r24,lo8(-17)
+ 712 00d2 00C0      		rjmp .L77
+ 713               	.LVL74:
+ 714               	.L68:
+ 163:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1) mousekey_accel &= ~(1<<1);
+ 715               		.loc 1 163 10 is_stmt 1 view .LVU235
+ 163:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1) mousekey_accel &= ~(1<<1);
+ 716               		.loc 1 163 13 is_stmt 0 view .LVU236
+ 717 00d4 8D3F      		cpi r24,lo8(-3)
+ 718 00d6 01F4      		brne .L69
+ 163:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1) mousekey_accel &= ~(1<<1);
+ 719               		.loc 1 163 36 is_stmt 1 discriminator 1 view .LVU237
+ 163:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1) mousekey_accel &= ~(1<<1);
+ 720               		.loc 1 163 51 is_stmt 0 discriminator 1 view .LVU238
+ 721 00d8 8091 0000 		lds r24,mousekey_accel
+ 722               	.LVL75:
+ 163:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL1) mousekey_accel &= ~(1<<1);
+ 723               		.loc 1 163 51 discriminator 1 view .LVU239
+ 724 00dc 8E7F      		andi r24,lo8(-2)
+ 725               	.L78:
+ 165:./tmk_core/common/mousekey.c **** 
+ 726               		.loc 1 165 51 discriminator 1 view .LVU240
+ 727 00de 8093 0000 		sts mousekey_accel,r24
+ 728 00e2 00C0      		rjmp .L51
+ 729               	.LVL76:
+ 730               	.L69:
+ 164:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2) mousekey_accel &= ~(1<<2);
+ 731               		.loc 1 164 10 is_stmt 1 view .LVU241
+ 164:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2) mousekey_accel &= ~(1<<2);
+ 732               		.loc 1 164 13 is_stmt 0 view .LVU242
+ 733 00e4 8E3F      		cpi r24,lo8(-2)
+ 734 00e6 01F4      		brne .L70
+ 164:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2) mousekey_accel &= ~(1<<2);
+ 735               		.loc 1 164 36 is_stmt 1 discriminator 1 view .LVU243
+ 164:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2) mousekey_accel &= ~(1<<2);
+ 736               		.loc 1 164 51 is_stmt 0 discriminator 1 view .LVU244
+ 737 00e8 8091 0000 		lds r24,mousekey_accel
+ 738               	.LVL77:
+ 164:./tmk_core/common/mousekey.c ****     else if (code == KC_MS_ACCEL2) mousekey_accel &= ~(1<<2);
+ 739               		.loc 1 164 51 discriminator 1 view .LVU245
+ 740 00ec 8D7F      		andi r24,lo8(-3)
+ 741 00ee 00C0      		rjmp .L78
+ 742               	.LVL78:
+ 743               	.L70:
+ 165:./tmk_core/common/mousekey.c **** 
+ 744               		.loc 1 165 10 is_stmt 1 view .LVU246
+ 165:./tmk_core/common/mousekey.c **** 
+ 745               		.loc 1 165 13 is_stmt 0 view .LVU247
+ 746 00f0 8F3F      		cpi r24,lo8(-1)
+ 747 00f2 01F0      		breq .+2
+ 748 00f4 00C0      		rjmp .L51
+ 165:./tmk_core/common/mousekey.c **** 
+ 749               		.loc 1 165 36 is_stmt 1 discriminator 1 view .LVU248
+ 165:./tmk_core/common/mousekey.c **** 
+ 750               		.loc 1 165 51 is_stmt 0 discriminator 1 view .LVU249
+ 751 00f6 8091 0000 		lds r24,mousekey_accel
+ 752               	.LVL79:
+ 165:./tmk_core/common/mousekey.c **** 
+ 753               		.loc 1 165 51 discriminator 1 view .LVU250
+ 754 00fa 8B7F      		andi r24,lo8(-5)
+ 755 00fc 00C0      		rjmp .L78
+ 756               		.cfi_endproc
+ 757               	.LFE108:
+ 759               		.section	.text.mousekey_send,"ax",@progbits
+ 760               	.global	mousekey_send
+ 762               	mousekey_send:
+ 763               	.LFB109:
+ 170:./tmk_core/common/mousekey.c **** 
+ 171:./tmk_core/common/mousekey.c **** void mousekey_send(void)
+ 172:./tmk_core/common/mousekey.c **** {
+ 764               		.loc 1 172 1 is_stmt 1 view -0
+ 765               		.cfi_startproc
+ 766               	/* prologue: function */
+ 767               	/* frame size = 0 */
+ 768               	/* stack size = 0 */
+ 769               	.L__stack_usage = 0
+ 173:./tmk_core/common/mousekey.c ****     mousekey_debug();
+ 770               		.loc 1 173 5 view .LVU252
+ 174:./tmk_core/common/mousekey.c ****     host_mouse_send(&mouse_report);
+ 771               		.loc 1 174 5 view .LVU253
+ 772 0000 80E0      		ldi r24,lo8(mouse_report)
+ 773 0002 90E0      		ldi r25,hi8(mouse_report)
+ 774 0004 0E94 0000 		call host_mouse_send
+ 775               	.LVL80:
+ 175:./tmk_core/common/mousekey.c ****     last_timer = timer_read();
+ 776               		.loc 1 175 5 view .LVU254
+ 777               		.loc 1 175 18 is_stmt 0 view .LVU255
+ 778 0008 0E94 0000 		call timer_read
+ 779               	.LVL81:
+ 780               		.loc 1 175 16 view .LVU256
+ 781 000c 9093 0000 		sts last_timer+1,r25
+ 782 0010 8093 0000 		sts last_timer,r24
+ 783               	/* epilogue start */
+ 176:./tmk_core/common/mousekey.c **** }
+ 784               		.loc 1 176 1 view .LVU257
+ 785 0014 0895      		ret
+ 786               		.cfi_endproc
+ 787               	.LFE109:
+ 789               	.global	__floatsisf
+ 790               	.global	__mulsf3
+ 791               	.global	__fixsfsi
+ 792               		.section	.text.mousekey_task,"ax",@progbits
+ 793               	.global	mousekey_task
+ 795               	mousekey_task:
+ 796               	.LFB106:
+  98:./tmk_core/common/mousekey.c ****     if (timer_elapsed(last_timer) < (mousekey_repeat ? mk_interval : mk_delay*10))
+ 797               		.loc 1 98 1 is_stmt 1 view -0
+ 798               		.cfi_startproc
+ 799 0000 1F93      		push r17
+ 800               	.LCFI0:
+ 801               		.cfi_def_cfa_offset 3
+ 802               		.cfi_offset 17, -2
+ 803 0002 CF93      		push r28
+ 804               	.LCFI1:
+ 805               		.cfi_def_cfa_offset 4
+ 806               		.cfi_offset 28, -3
+ 807 0004 DF93      		push r29
+ 808               	.LCFI2:
+ 809               		.cfi_def_cfa_offset 5
+ 810               		.cfi_offset 29, -4
+ 811               	/* prologue: function */
+ 812               	/* frame size = 0 */
+ 813               	/* stack size = 3 */
+ 814               	.L__stack_usage = 3
+  99:./tmk_core/common/mousekey.c ****         return;
+ 815               		.loc 1 99 5 view .LVU259
+  99:./tmk_core/common/mousekey.c ****         return;
+ 816               		.loc 1 99 9 is_stmt 0 view .LVU260
+ 817 0006 8091 0000 		lds r24,last_timer
+ 818 000a 9091 0000 		lds r25,last_timer+1
+ 819 000e 0E94 0000 		call timer_elapsed
+ 820               	.LVL82:
+ 821 0012 AC01      		movw r20,r24
+  99:./tmk_core/common/mousekey.c ****         return;
+ 822               		.loc 1 99 54 view .LVU261
+ 823 0014 9091 0000 		lds r25,mousekey_repeat
+  99:./tmk_core/common/mousekey.c ****         return;
+ 824               		.loc 1 99 68 view .LVU262
+ 825 0018 2091 0000 		lds r18,mk_interval
+ 826 001c 30E0      		ldi r19,0
+ 827 001e 9111      		cpse r25,__zero_reg__
+ 828 0020 00C0      		rjmp .L82
+  99:./tmk_core/common/mousekey.c ****         return;
+ 829               		.loc 1 99 78 discriminator 2 view .LVU263
+ 830 0022 2091 0000 		lds r18,mk_delay
+ 831 0026 8AE0      		ldi r24,lo8(10)
+ 832 0028 289F      		mul r18,r24
+ 833 002a 9001      		movw r18,r0
+ 834 002c 1124      		clr __zero_reg__
+ 835               	.L82:
+  99:./tmk_core/common/mousekey.c ****         return;
+ 836               		.loc 1 99 8 discriminator 4 view .LVU264
+ 837 002e 4217      		cp r20,r18
+ 838 0030 5307      		cpc r21,r19
+ 839 0032 00F0      		brlo .L80
+ 102:./tmk_core/common/mousekey.c ****         return;
+ 840               		.loc 1 102 5 is_stmt 1 view .LVU265
+ 102:./tmk_core/common/mousekey.c ****         return;
+ 841               		.loc 1 102 21 is_stmt 0 view .LVU266
+ 842 0034 2091 0000 		lds r18,mouse_report+1
+ 843 0038 C091 0000 		lds r28,mouse_report+2
+ 844 003c D091 0000 		lds r29,mouse_report+3
+ 845 0040 1091 0000 		lds r17,mouse_report+4
+ 102:./tmk_core/common/mousekey.c ****         return;
+ 846               		.loc 1 102 8 view .LVU267
+ 847 0044 2111      		cpse r18,__zero_reg__
+ 848 0046 00C0      		rjmp .L84
+ 102:./tmk_core/common/mousekey.c ****         return;
+ 849               		.loc 1 102 75 discriminator 1 view .LVU268
+ 850 0048 8C2F      		mov r24,r28
+ 851 004a 8D2B      		or r24,r29
+ 852 004c 812B      		or r24,r17
+ 853 004e 01F0      		breq .+2
+ 854 0050 00C0      		rjmp .L109
+ 855               	.L80:
+ 856               	/* epilogue start */
+ 126:./tmk_core/common/mousekey.c **** 
+ 857               		.loc 1 126 1 view .LVU269
+ 858 0052 DF91      		pop r29
+ 859 0054 CF91      		pop r28
+ 860 0056 1F91      		pop r17
+ 861 0058 0895      		ret
+ 862               	.L84:
+ 105:./tmk_core/common/mousekey.c ****         mousekey_repeat++;
+ 863               		.loc 1 105 5 is_stmt 1 view .LVU270
+ 105:./tmk_core/common/mousekey.c ****         mousekey_repeat++;
+ 864               		.loc 1 105 8 is_stmt 0 view .LVU271
+ 865 005a 9F3F      		cpi r25,lo8(-1)
+ 866 005c 01F0      		breq .L86
+ 867               	.L96:
+ 106:./tmk_core/common/mousekey.c **** 
+ 868               		.loc 1 106 9 is_stmt 1 view .LVU272
+ 106:./tmk_core/common/mousekey.c **** 
+ 869               		.loc 1 106 24 is_stmt 0 view .LVU273
+ 870 005e 9F5F      		subi r25,lo8(-(1))
+ 871 0060 9093 0000 		sts mousekey_repeat,r25
+ 872               	.L86:
+ 109:./tmk_core/common/mousekey.c ****     if (mouse_report.x < 0) mouse_report.x = move_unit() * -1;
+ 873               		.loc 1 109 5 is_stmt 1 view .LVU274
+ 109:./tmk_core/common/mousekey.c ****     if (mouse_report.x < 0) mouse_report.x = move_unit() * -1;
+ 874               		.loc 1 109 8 is_stmt 0 view .LVU275
+ 875 0064 1216      		cp __zero_reg__,r18
+ 876 0066 04F4      		brge .L87
+ 109:./tmk_core/common/mousekey.c ****     if (mouse_report.x < 0) mouse_report.x = move_unit() * -1;
+ 877               		.loc 1 109 29 is_stmt 1 discriminator 1 view .LVU276
+ 109:./tmk_core/common/mousekey.c ****     if (mouse_report.x < 0) mouse_report.x = move_unit() * -1;
+ 878               		.loc 1 109 46 is_stmt 0 discriminator 1 view .LVU277
+ 879 0068 0E94 0000 		call move_unit
+ 880               	.LVL83:
+ 109:./tmk_core/common/mousekey.c ****     if (mouse_report.x < 0) mouse_report.x = move_unit() * -1;
+ 881               		.loc 1 109 44 discriminator 1 view .LVU278
+ 882 006c 8093 0000 		sts mouse_report+1,r24
+ 883               	.L87:
+ 110:./tmk_core/common/mousekey.c ****     if (mouse_report.y > 0) mouse_report.y = move_unit();
+ 884               		.loc 1 110 5 is_stmt 1 view .LVU279
+ 110:./tmk_core/common/mousekey.c ****     if (mouse_report.y > 0) mouse_report.y = move_unit();
+ 885               		.loc 1 110 8 is_stmt 0 view .LVU280
+ 886 0070 8091 0000 		lds r24,mouse_report+1
+ 887 0074 87FF      		sbrs r24,7
+ 888 0076 00C0      		rjmp .L88
+ 110:./tmk_core/common/mousekey.c ****     if (mouse_report.y > 0) mouse_report.y = move_unit();
+ 889               		.loc 1 110 29 is_stmt 1 discriminator 1 view .LVU281
+ 110:./tmk_core/common/mousekey.c ****     if (mouse_report.y > 0) mouse_report.y = move_unit();
+ 890               		.loc 1 110 46 is_stmt 0 discriminator 1 view .LVU282
+ 891 0078 0E94 0000 		call move_unit
+ 892               	.LVL84:
+ 110:./tmk_core/common/mousekey.c ****     if (mouse_report.y > 0) mouse_report.y = move_unit();
+ 893               		.loc 1 110 44 discriminator 1 view .LVU283
+ 894 007c 8195      		neg r24
+ 895 007e 8093 0000 		sts mouse_report+1,r24
+ 896               	.L88:
+ 111:./tmk_core/common/mousekey.c ****     if (mouse_report.y < 0) mouse_report.y = move_unit() * -1;
+ 897               		.loc 1 111 5 is_stmt 1 view .LVU284
+ 111:./tmk_core/common/mousekey.c ****     if (mouse_report.y < 0) mouse_report.y = move_unit() * -1;
+ 898               		.loc 1 111 8 is_stmt 0 view .LVU285
+ 899 0082 1C16      		cp __zero_reg__,r28
+ 900 0084 04F4      		brge .L89
+ 111:./tmk_core/common/mousekey.c ****     if (mouse_report.y < 0) mouse_report.y = move_unit() * -1;
+ 901               		.loc 1 111 29 is_stmt 1 discriminator 1 view .LVU286
+ 111:./tmk_core/common/mousekey.c ****     if (mouse_report.y < 0) mouse_report.y = move_unit() * -1;
+ 902               		.loc 1 111 46 is_stmt 0 discriminator 1 view .LVU287
+ 903 0086 0E94 0000 		call move_unit
+ 904               	.LVL85:
+ 111:./tmk_core/common/mousekey.c ****     if (mouse_report.y < 0) mouse_report.y = move_unit() * -1;
+ 905               		.loc 1 111 44 discriminator 1 view .LVU288
+ 906 008a 8093 0000 		sts mouse_report+2,r24
+ 907               	.L89:
+ 112:./tmk_core/common/mousekey.c **** 
+ 908               		.loc 1 112 5 is_stmt 1 view .LVU289
+ 112:./tmk_core/common/mousekey.c **** 
+ 909               		.loc 1 112 8 is_stmt 0 view .LVU290
+ 910 008e 8091 0000 		lds r24,mouse_report+2
+ 911 0092 87FF      		sbrs r24,7
+ 912 0094 00C0      		rjmp .L90
+ 112:./tmk_core/common/mousekey.c **** 
+ 913               		.loc 1 112 29 is_stmt 1 discriminator 1 view .LVU291
+ 112:./tmk_core/common/mousekey.c **** 
+ 914               		.loc 1 112 46 is_stmt 0 discriminator 1 view .LVU292
+ 915 0096 0E94 0000 		call move_unit
+ 916               	.LVL86:
+ 112:./tmk_core/common/mousekey.c **** 
+ 917               		.loc 1 112 44 discriminator 1 view .LVU293
+ 918 009a 8195      		neg r24
+ 919 009c 8093 0000 		sts mouse_report+2,r24
+ 920               	.L90:
+ 115:./tmk_core/common/mousekey.c ****         mouse_report.x *= 0.7;
+ 921               		.loc 1 115 5 is_stmt 1 view .LVU294
+ 115:./tmk_core/common/mousekey.c ****         mouse_report.x *= 0.7;
+ 922               		.loc 1 115 21 is_stmt 0 view .LVU295
+ 923 00a0 6091 0000 		lds r22,mouse_report+1
+ 115:./tmk_core/common/mousekey.c ****         mouse_report.x *= 0.7;
+ 924               		.loc 1 115 8 view .LVU296
+ 925 00a4 6623      		tst r22
+ 926 00a6 01F0      		breq .L91
+ 115:./tmk_core/common/mousekey.c ****         mouse_report.x *= 0.7;
+ 927               		.loc 1 115 39 discriminator 1 view .LVU297
+ 928 00a8 C091 0000 		lds r28,mouse_report+2
+ 115:./tmk_core/common/mousekey.c ****         mouse_report.x *= 0.7;
+ 929               		.loc 1 115 24 discriminator 1 view .LVU298
+ 930 00ac CC23      		tst r28
+ 931 00ae 01F0      		breq .L91
+ 116:./tmk_core/common/mousekey.c ****         mouse_report.y *= 0.7;
+ 932               		.loc 1 116 9 is_stmt 1 view .LVU299
+ 116:./tmk_core/common/mousekey.c ****         mouse_report.y *= 0.7;
+ 933               		.loc 1 116 24 is_stmt 0 view .LVU300
+ 934 00b0 062E      		mov __tmp_reg__,r22
+ 935 00b2 000C      		lsl r0
+ 936 00b4 770B      		sbc r23,r23
+ 937 00b6 880B      		sbc r24,r24
+ 938 00b8 990B      		sbc r25,r25
+ 939 00ba 0E94 0000 		call __floatsisf
+ 940               	.LVL87:
+ 941 00be 23E3      		ldi r18,lo8(51)
+ 942 00c0 33E3      		ldi r19,lo8(51)
+ 943 00c2 43E3      		ldi r20,lo8(51)
+ 944 00c4 5FE3      		ldi r21,lo8(63)
+ 945 00c6 0E94 0000 		call __mulsf3
+ 946               	.LVL88:
+ 947 00ca 0E94 0000 		call __fixsfsi
+ 948               	.LVL89:
+ 949 00ce 6093 0000 		sts mouse_report+1,r22
+ 117:./tmk_core/common/mousekey.c ****     }
+ 950               		.loc 1 117 9 is_stmt 1 view .LVU301
+ 117:./tmk_core/common/mousekey.c ****     }
+ 951               		.loc 1 117 24 is_stmt 0 view .LVU302
+ 952 00d2 6C2F      		mov r22,r28
+ 953 00d4 CC0F      		lsl r28
+ 954 00d6 770B      		sbc r23,r23
+ 955 00d8 880B      		sbc r24,r24
+ 956 00da 990B      		sbc r25,r25
+ 957 00dc 0E94 0000 		call __floatsisf
+ 958               	.LVL90:
+ 959 00e0 23E3      		ldi r18,lo8(51)
+ 960 00e2 33E3      		ldi r19,lo8(51)
+ 961 00e4 43E3      		ldi r20,lo8(51)
+ 962 00e6 5FE3      		ldi r21,lo8(63)
+ 963 00e8 0E94 0000 		call __mulsf3
+ 964               	.LVL91:
+ 965 00ec 0E94 0000 		call __fixsfsi
+ 966               	.LVL92:
+ 967 00f0 6093 0000 		sts mouse_report+2,r22
+ 968               	.L91:
+ 120:./tmk_core/common/mousekey.c ****     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
+ 969               		.loc 1 120 5 is_stmt 1 view .LVU303
+ 120:./tmk_core/common/mousekey.c ****     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
+ 970               		.loc 1 120 8 is_stmt 0 view .LVU304
+ 971 00f4 1D16      		cp __zero_reg__,r29
+ 972 00f6 04F4      		brge .L92
+ 120:./tmk_core/common/mousekey.c ****     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
+ 973               		.loc 1 120 29 is_stmt 1 discriminator 1 view .LVU305
+ 120:./tmk_core/common/mousekey.c ****     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
+ 974               		.loc 1 120 46 is_stmt 0 discriminator 1 view .LVU306
+ 975 00f8 0E94 0000 		call wheel_unit
+ 976               	.LVL93:
+ 120:./tmk_core/common/mousekey.c ****     if (mouse_report.v < 0) mouse_report.v = wheel_unit() * -1;
+ 977               		.loc 1 120 44 discriminator 1 view .LVU307
+ 978 00fc 8093 0000 		sts mouse_report+3,r24
+ 979               	.L92:
+ 121:./tmk_core/common/mousekey.c ****     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
+ 980               		.loc 1 121 5 is_stmt 1 view .LVU308
+ 121:./tmk_core/common/mousekey.c ****     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
+ 981               		.loc 1 121 8 is_stmt 0 view .LVU309
+ 982 0100 8091 0000 		lds r24,mouse_report+3
+ 983 0104 87FF      		sbrs r24,7
+ 984 0106 00C0      		rjmp .L93
+ 121:./tmk_core/common/mousekey.c ****     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
+ 985               		.loc 1 121 29 is_stmt 1 discriminator 1 view .LVU310
+ 121:./tmk_core/common/mousekey.c ****     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
+ 986               		.loc 1 121 46 is_stmt 0 discriminator 1 view .LVU311
+ 987 0108 0E94 0000 		call wheel_unit
+ 988               	.LVL94:
+ 121:./tmk_core/common/mousekey.c ****     if (mouse_report.h > 0) mouse_report.h = wheel_unit();
+ 989               		.loc 1 121 44 discriminator 1 view .LVU312
+ 990 010c 8195      		neg r24
+ 991 010e 8093 0000 		sts mouse_report+3,r24
+ 992               	.L93:
+ 122:./tmk_core/common/mousekey.c ****     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+ 993               		.loc 1 122 5 is_stmt 1 view .LVU313
+ 122:./tmk_core/common/mousekey.c ****     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+ 994               		.loc 1 122 8 is_stmt 0 view .LVU314
+ 995 0112 1116      		cp __zero_reg__,r17
+ 996 0114 04F4      		brge .L94
+ 122:./tmk_core/common/mousekey.c ****     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+ 997               		.loc 1 122 29 is_stmt 1 discriminator 1 view .LVU315
+ 122:./tmk_core/common/mousekey.c ****     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+ 998               		.loc 1 122 46 is_stmt 0 discriminator 1 view .LVU316
+ 999 0116 0E94 0000 		call wheel_unit
+ 1000               	.LVL95:
+ 122:./tmk_core/common/mousekey.c ****     if (mouse_report.h < 0) mouse_report.h = wheel_unit() * -1;
+ 1001               		.loc 1 122 44 discriminator 1 view .LVU317
+ 1002 011a 8093 0000 		sts mouse_report+4,r24
+ 1003               	.L94:
+ 123:./tmk_core/common/mousekey.c **** 
+ 1004               		.loc 1 123 5 is_stmt 1 view .LVU318
+ 123:./tmk_core/common/mousekey.c **** 
+ 1005               		.loc 1 123 8 is_stmt 0 view .LVU319
+ 1006 011e 8091 0000 		lds r24,mouse_report+4
+ 1007 0122 87FF      		sbrs r24,7
+ 1008 0124 00C0      		rjmp .L95
+ 123:./tmk_core/common/mousekey.c **** 
+ 1009               		.loc 1 123 29 is_stmt 1 discriminator 1 view .LVU320
+ 123:./tmk_core/common/mousekey.c **** 
+ 1010               		.loc 1 123 46 is_stmt 0 discriminator 1 view .LVU321
+ 1011 0126 0E94 0000 		call wheel_unit
+ 1012               	.LVL96:
+ 123:./tmk_core/common/mousekey.c **** 
+ 1013               		.loc 1 123 44 discriminator 1 view .LVU322
+ 1014 012a 8195      		neg r24
+ 1015 012c 8093 0000 		sts mouse_report+4,r24
+ 1016               	.L95:
+ 125:./tmk_core/common/mousekey.c **** }
+ 1017               		.loc 1 125 5 is_stmt 1 view .LVU323
+ 1018               	/* epilogue start */
+ 126:./tmk_core/common/mousekey.c **** 
+ 1019               		.loc 1 126 1 is_stmt 0 view .LVU324
+ 1020 0130 DF91      		pop r29
+ 1021 0132 CF91      		pop r28
+ 1022 0134 1F91      		pop r17
+ 125:./tmk_core/common/mousekey.c **** }
+ 1023               		.loc 1 125 5 view .LVU325
+ 1024 0136 0C94 0000 		jmp mousekey_send
+ 1025               	.LVL97:
+ 1026               	.L109:
+ 105:./tmk_core/common/mousekey.c ****         mousekey_repeat++;
+ 1027               		.loc 1 105 5 is_stmt 1 view .LVU326
+ 105:./tmk_core/common/mousekey.c ****         mousekey_repeat++;
+ 1028               		.loc 1 105 8 is_stmt 0 view .LVU327
+ 1029 013a 9F3F      		cpi r25,lo8(-1)
+ 1030 013c 01F0      		breq .+2
+ 1031 013e 00C0      		rjmp .L96
+ 1032 0140 00C0      		rjmp .L88
+ 1033               		.cfi_endproc
+ 1034               	.LFE106:
+ 1036               		.section	.text.mousekey_clear,"ax",@progbits
+ 1037               	.global	mousekey_clear
+ 1039               	mousekey_clear:
+ 1040               	.LFB110:
+ 177:./tmk_core/common/mousekey.c **** 
+ 178:./tmk_core/common/mousekey.c **** void mousekey_clear(void)
+ 179:./tmk_core/common/mousekey.c **** {
+ 1041               		.loc 1 179 1 is_stmt 1 view -0
+ 1042               		.cfi_startproc
+ 1043               	/* prologue: function */
+ 1044               	/* frame size = 0 */
+ 1045               	/* stack size = 0 */
+ 1046               	.L__stack_usage = 0
+ 180:./tmk_core/common/mousekey.c ****     mouse_report = (report_mouse_t){};
+ 1047               		.loc 1 180 5 view .LVU329
+ 1048               		.loc 1 180 18 is_stmt 0 view .LVU330
+ 1049 0000 85E0      		ldi r24,lo8(5)
+ 1050 0002 E0E0      		ldi r30,lo8(mouse_report)
+ 1051 0004 F0E0      		ldi r31,hi8(mouse_report)
+ 1052 0006 DF01      		movw r26,r30
+ 1053               		0:
+ 1054 0008 1D92      		st X+,__zero_reg__
+ 1055 000a 8A95      		dec r24
+ 1056 000c 01F4      		brne 0b
+ 181:./tmk_core/common/mousekey.c ****     mousekey_repeat = 0;
+ 1057               		.loc 1 181 5 is_stmt 1 view .LVU331
+ 1058               		.loc 1 181 21 is_stmt 0 view .LVU332
+ 1059 000e 1092 0000 		sts mousekey_repeat,__zero_reg__
+ 182:./tmk_core/common/mousekey.c ****     mousekey_accel = 0;
+ 1060               		.loc 1 182 5 is_stmt 1 view .LVU333
+ 1061               		.loc 1 182 20 is_stmt 0 view .LVU334
+ 1062 0012 1092 0000 		sts mousekey_accel,__zero_reg__
+ 1063               	/* epilogue start */
+ 183:./tmk_core/common/mousekey.c **** }
+ 1064               		.loc 1 183 1 view .LVU335
+ 1065 0016 0895      		ret
+ 1066               		.cfi_endproc
+ 1067               	.LFE110:
+ 1069               		.section	.bss.last_timer,"aw",@nobits
+ 1072               	last_timer:
+ 1073 0000 0000      		.zero	2
+ 1074               	.global	mk_wheel_time_to_max
+ 1075               		.section	.data.mk_wheel_time_to_max,"aw"
+ 1078               	mk_wheel_time_to_max:
+ 1079 0000 28        		.byte	40
+ 1080               	.global	mk_wheel_max_speed
+ 1081               		.section	.data.mk_wheel_max_speed,"aw"
+ 1084               	mk_wheel_max_speed:
+ 1085 0000 08        		.byte	8
+ 1086               	.global	mk_time_to_max
+ 1087               		.section	.data.mk_time_to_max,"aw"
+ 1090               	mk_time_to_max:
+ 1091 0000 14        		.byte	20
+ 1092               	.global	mk_max_speed
+ 1093               		.section	.data.mk_max_speed,"aw"
+ 1096               	mk_max_speed:
+ 1097 0000 0A        		.byte	10
+ 1098               	.global	mk_interval
+ 1099               		.section	.data.mk_interval,"aw"
+ 1102               	mk_interval:
+ 1103 0000 32        		.byte	50
+ 1104               	.global	mk_delay
+ 1105               		.section	.data.mk_delay,"aw"
+ 1108               	mk_delay:
+ 1109 0000 1E        		.byte	30
+ 1110               		.section	.bss.mousekey_accel,"aw",@nobits
+ 1113               	mousekey_accel:
+ 1114 0000 00        		.zero	1
+ 1115               		.section	.bss.mousekey_repeat,"aw",@nobits
+ 1118               	mousekey_repeat:
+ 1119 0000 00        		.zero	1
+ 1120               		.section	.bss.mouse_report,"aw",@nobits
+ 1123               	mouse_report:
+ 1124 0000 0000 0000 		.zero	5
+ 1124      00
+ 1125               		.text
+ 1126               	.Letext0:
+ 1127               		.file 2 "/usr/local/Cellar/avr-gcc@8/8.5.0_1/avr/include/stdint.h"
+ 1128               		.file 3 "./tmk_core/protocol/lufa/LUFA-git/LUFA/Drivers/USB/Core/AVR8/../StdRequestType.h"
+ 1129               		.file 4 "./tmk_core/protocol/lufa/LUFA-git/LUFA/Drivers/USB/Core/AVR8/../DeviceStandardReq.h"
+ 1130               		.file 5 "./tmk_core/protocol/lufa/LUFA-git/LUFA/Drivers/USB/Core/USBTask.h"
+ 1131               		.file 6 "./tmk_core/protocol/lufa/LUFA-git/LUFA/Drivers/USB/Core/HostStandardReq.h"
+ 1132               		.file 7 "/usr/local/Cellar/avr-gcc@8/8.5.0_1/avr/include/stdio.h"
+ 1133               		.file 8 "./tmk_core/common/report.h"
+ 1134               		.file 9 "./tmk_core/common/host.h"
+ 1135               		.file 10 "./tmk_core/common/timer.h"
+ 1136               		.file 11 "./tmk_core/common/debug.h"
+ 1137               		.file 12 "./tmk_core/common/mousekey.h"
+ 1138               		.file 13 "./tmk_core/common/keycode.h"
+DEFINED SYMBOLS
+                            *ABS*:00000000 mousekey.c
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:2      *ABS*:0000003e __SP_H__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3      *ABS*:0000003d __SP_L__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:4      *ABS*:0000003f __SREG__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:5      *ABS*:00000000 __tmp_reg__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:6      *ABS*:00000001 __zero_reg__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:12     .text.move_unit:00000000 move_unit
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:15     .text.move_unit:00000000 .Loc.0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:16     .text.move_unit:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:21     .text.move_unit:00000000 .Loc.1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:22     .text.move_unit:00000000 .Loc.2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:23     .text.move_unit:00000000 .Loc.3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1113   .bss.mousekey_accel:00000000 mousekey_accel
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:25     .text.move_unit:00000004 .Loc.4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:28     .text.move_unit:00000008 .Loc.5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:29     .text.move_unit:00000008 .Loc.6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1096   .data.mk_max_speed:00000000 mk_max_speed
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:35     .text.move_unit:00000014 .Loc.7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:42     .text.move_unit:0000001c .Loc.8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:43     .text.move_unit:0000001c .Loc.9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:47     .text.move_unit:00000022 .Loc.10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:53     .text.move_unit:00000028 .Loc.11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:57     .text.move_unit:0000002c .Loc.12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:58     .text.move_unit:0000002c .Loc.13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:61     .text.move_unit:00000030 .Loc.14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:62     .text.move_unit:00000030 .Loc.15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:68     .text.move_unit:0000003c .Loc.16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:72     .text.move_unit:00000040 .Loc.17
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:76     .text.move_unit:00000042 .Loc.18
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:77     .text.move_unit:00000042 .Loc.19
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:79     .text.move_unit:00000046 .Loc.20
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:82     .text.move_unit:0000004a .Loc.21
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:83     .text.move_unit:0000004a .Loc.22
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1118   .bss.mousekey_repeat:00000000 mousekey_repeat
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:85     .text.move_unit:0000004e .Loc.23
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:88     .text.move_unit:00000052 .Loc.24
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:89     .text.move_unit:00000052 .Loc.25
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1090   .data.mk_time_to_max:00000000 mk_time_to_max
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:92     .text.move_unit:0000005a .Loc.26
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:96     .text.move_unit:0000005e .Loc.27
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:97     .text.move_unit:0000005e .Loc.28
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:103    .text.move_unit:00000066 .Loc.29
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:107    .text.move_unit:00000068 .Loc.30
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:108    .text.move_unit:00000068 .Loc.31
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:118    .text.move_unit:0000007a .Loc.32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:121    .text.move_unit:0000007e .Loc.33
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:125    .text.move_unit:00000084 .Loc.34
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:129    .text.move_unit:00000086 .Loc.35
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:135    .text.move_unit:0000008c .Loc.36
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:141    .text.move_unit:00000092 .Loc.37
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:143    .text.move_unit:00000094 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:148    .text.wheel_unit:00000000 wheel_unit
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:150    .text.wheel_unit:00000000 .Loc.38
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:151    .text.wheel_unit:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:156    .text.wheel_unit:00000000 .Loc.39
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:157    .text.wheel_unit:00000000 .Loc.40
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:158    .text.wheel_unit:00000000 .Loc.41
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:160    .text.wheel_unit:00000004 .Loc.42
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:163    .text.wheel_unit:00000008 .Loc.43
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:164    .text.wheel_unit:00000008 .Loc.44
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1084   .data.mk_wheel_max_speed:00000000 mk_wheel_max_speed
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:167    .text.wheel_unit:0000000e .Loc.45
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:174    .text.wheel_unit:00000016 .Loc.46
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:180    .text.wheel_unit:0000001c .Loc.47
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:184    .text.wheel_unit:00000020 .Loc.48
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:185    .text.wheel_unit:00000020 .Loc.49
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:188    .text.wheel_unit:00000024 .Loc.50
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:189    .text.wheel_unit:00000024 .Loc.51
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:192    .text.wheel_unit:0000002a .Loc.52
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:196    .text.wheel_unit:0000002e .Loc.53
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:200    .text.wheel_unit:00000030 .Loc.54
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:201    .text.wheel_unit:00000030 .Loc.55
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:203    .text.wheel_unit:00000034 .Loc.56
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:206    .text.wheel_unit:00000038 .Loc.57
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:207    .text.wheel_unit:00000038 .Loc.58
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:209    .text.wheel_unit:0000003c .Loc.59
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:212    .text.wheel_unit:00000040 .Loc.60
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:213    .text.wheel_unit:00000040 .Loc.61
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1078   .data.mk_wheel_time_to_max:00000000 mk_wheel_time_to_max
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:216    .text.wheel_unit:00000048 .Loc.62
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:219    .text.wheel_unit:0000004c .Loc.63
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:220    .text.wheel_unit:0000004c .Loc.64
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:226    .text.wheel_unit:00000050 .Loc.65
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:227    .text.wheel_unit:00000050 .Loc.66
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:235    .text.wheel_unit:0000005a .Loc.67
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:236    .text.wheel_unit:0000005a .Loc.68
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:240    .text.wheel_unit:00000060 .Loc.69
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:242    .text.wheel_unit:00000062 .Loc.70
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:245    .text.wheel_unit:00000066 .Loc.71
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:249    .text.wheel_unit:00000068 .Loc.72
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:255    .text.wheel_unit:0000006e .Loc.73
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:258    .text.wheel_unit:00000070 .Loc.74
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:260    .text.wheel_unit:00000072 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:266    .text.mousekey_on:00000000 mousekey_on
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:269    .text.mousekey_on:00000000 .Loc.75
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:270    .text.mousekey_on:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:275    .text.mousekey_on:00000000 .Loc.76
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:276    .text.mousekey_on:00000000 .Loc.77
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:279    .text.mousekey_on:00000004 .Loc.78
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:280    .text.mousekey_on:00000004 .Loc.79
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:283    .text.mousekey_on:00000008 .Loc.80
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:286    .text.mousekey_on:0000000a .Loc.81
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1123   .bss.mouse_report:00000000 mouse_report
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:291    .text.mousekey_on:00000010 .Loc.82
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:292    .text.mousekey_on:00000010 .Loc.83
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:295    .text.mousekey_on:00000014 .Loc.84
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:296    .text.mousekey_on:00000014 .Loc.85
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:299    .text.mousekey_on:00000018 .Loc.86
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:303    .text.mousekey_on:0000001a .Loc.87
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:304    .text.mousekey_on:0000001a .Loc.88
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:307    .text.mousekey_on:0000001e .Loc.89
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:308    .text.mousekey_on:0000001e .Loc.90
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:311    .text.mousekey_on:00000022 .Loc.91
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:314    .text.mousekey_on:00000024 .Loc.92
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:319    .text.mousekey_on:0000002a .Loc.93
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:320    .text.mousekey_on:0000002a .Loc.94
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:323    .text.mousekey_on:0000002e .Loc.95
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:324    .text.mousekey_on:0000002e .Loc.96
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:327    .text.mousekey_on:00000032 .Loc.97
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:331    .text.mousekey_on:00000034 .Loc.98
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:332    .text.mousekey_on:00000034 .Loc.99
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:335    .text.mousekey_on:00000038 .Loc.100
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:336    .text.mousekey_on:00000038 .Loc.101
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:340    .text.mousekey_on:0000003c .Loc.102
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:345    .text.mousekey_on:00000042 .Loc.103
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:346    .text.mousekey_on:00000042 .Loc.104
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:349    .text.mousekey_on:00000046 .Loc.105
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:350    .text.mousekey_on:00000046 .Loc.106
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:353    .text.mousekey_on:0000004a .Loc.107
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:358    .text.mousekey_on:0000004e .Loc.108
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:359    .text.mousekey_on:0000004e .Loc.109
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:362    .text.mousekey_on:00000052 .Loc.110
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:363    .text.mousekey_on:00000052 .Loc.111
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:366    .text.mousekey_on:00000056 .Loc.112
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:369    .text.mousekey_on:00000058 .Loc.113
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:374    .text.mousekey_on:0000005e .Loc.114
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:375    .text.mousekey_on:0000005e .Loc.115
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:378    .text.mousekey_on:00000062 .Loc.116
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:379    .text.mousekey_on:00000062 .Loc.117
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:382    .text.mousekey_on:00000066 .Loc.118
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:386    .text.mousekey_on:00000068 .Loc.119
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:387    .text.mousekey_on:00000068 .Loc.120
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:390    .text.mousekey_on:0000006c .Loc.121
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:391    .text.mousekey_on:0000006c .Loc.122
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:394    .text.mousekey_on:00000070 .Loc.123
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:397    .text.mousekey_on:00000072 .Loc.124
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:402    .text.mousekey_on:00000078 .Loc.125
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:403    .text.mousekey_on:00000078 .Loc.126
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:406    .text.mousekey_on:0000007c .Loc.127
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:407    .text.mousekey_on:0000007c .Loc.128
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:410    .text.mousekey_on:00000080 .Loc.129
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:415    .text.mousekey_on:00000084 .Loc.130
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:416    .text.mousekey_on:00000084 .Loc.131
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:419    .text.mousekey_on:00000088 .Loc.132
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:420    .text.mousekey_on:00000088 .Loc.133
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:423    .text.mousekey_on:0000008c .Loc.134
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:428    .text.mousekey_on:00000090 .Loc.135
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:429    .text.mousekey_on:00000090 .Loc.136
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:432    .text.mousekey_on:00000094 .Loc.137
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:433    .text.mousekey_on:00000094 .Loc.138
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:436    .text.mousekey_on:00000098 .Loc.139
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:441    .text.mousekey_on:0000009c .Loc.140
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:442    .text.mousekey_on:0000009c .Loc.141
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:445    .text.mousekey_on:000000a0 .Loc.142
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:446    .text.mousekey_on:000000a0 .Loc.143
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:449    .text.mousekey_on:000000a4 .Loc.144
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:454    .text.mousekey_on:000000a8 .Loc.145
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:455    .text.mousekey_on:000000a8 .Loc.146
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:458    .text.mousekey_on:000000ac .Loc.147
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:459    .text.mousekey_on:000000ac .Loc.148
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:462    .text.mousekey_on:000000b0 .Loc.149
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:465    .text.mousekey_on:000000b2 .Loc.150
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:469    .text.mousekey_on:000000b6 .Loc.151
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:473    .text.mousekey_on:000000b8 .Loc.152
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:474    .text.mousekey_on:000000b8 .Loc.153
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:477    .text.mousekey_on:000000bc .Loc.154
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:478    .text.mousekey_on:000000bc .Loc.155
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:481    .text.mousekey_on:000000c0 .Loc.156
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:486    .text.mousekey_on:000000c4 .Loc.157
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:487    .text.mousekey_on:000000c4 .Loc.158
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:490    .text.mousekey_on:000000c8 .Loc.159
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:491    .text.mousekey_on:000000c8 .Loc.160
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:494    .text.mousekey_on:000000cc .Loc.161
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:497    .text.mousekey_on:000000d0 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:503    .text.mousekey_off:00000000 mousekey_off
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:506    .text.mousekey_off:00000000 .Loc.162
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:507    .text.mousekey_off:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:512    .text.mousekey_off:00000000 .Loc.163
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:514    .text.mousekey_off:00000004 .Loc.164
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:517    .text.mousekey_off:00000008 .Loc.165
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:520    .text.mousekey_off:0000000c .Loc.166
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:523    .text.mousekey_off:0000000e .Loc.167
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:524    .text.mousekey_off:0000000e .Loc.168
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:527    .text.mousekey_off:00000012 .Loc.169
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:528    .text.mousekey_off:00000012 .Loc.170
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:533    .text.mousekey_off:00000016 .Loc.171
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:537    .text.mousekey_off:00000018 .Loc.172
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:538    .text.mousekey_off:00000018 .Loc.173
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:541    .text.mousekey_off:0000001c .Loc.174
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:544    .text.mousekey_off:00000020 .Loc.175
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:550    .text.mousekey_off:00000026 .Loc.176
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:551    .text.mousekey_off:00000026 .Loc.177
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:554    .text.mousekey_off:0000002a .Loc.178
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:558    .text.mousekey_off:0000002e .Loc.179
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:559    .text.mousekey_off:0000002e .Loc.180
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:563    .text.mousekey_off:00000032 .Loc.181
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:564    .text.mousekey_off:00000032 .Loc.182
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:571    .text.mousekey_off:00000044 .Loc.183
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:572    .text.mousekey_off:00000044 .Loc.184
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:574    .text.mousekey_off:00000048 .Loc.185
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:578    .text.mousekey_off:0000004a .Loc.186
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:579    .text.mousekey_off:0000004a .Loc.187
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:582    .text.mousekey_off:0000004e .Loc.188
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:587    .text.mousekey_off:00000054 .Loc.189
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:588    .text.mousekey_off:00000054 .Loc.190
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:591    .text.mousekey_off:00000058 .Loc.191
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:594    .text.mousekey_off:0000005c .Loc.192
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:598    .text.mousekey_off:00000060 .Loc.193
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:599    .text.mousekey_off:00000060 .Loc.194
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:604    .text.mousekey_off:00000066 .Loc.195
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:605    .text.mousekey_off:00000066 .Loc.196
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:608    .text.mousekey_off:0000006a .Loc.197
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:611    .text.mousekey_off:0000006e .Loc.198
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:617    .text.mousekey_off:00000074 .Loc.199
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:618    .text.mousekey_off:00000074 .Loc.200
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:621    .text.mousekey_off:00000078 .Loc.201
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:624    .text.mousekey_off:0000007c .Loc.202
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:628    .text.mousekey_off:00000080 .Loc.203
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:629    .text.mousekey_off:00000080 .Loc.204
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:634    .text.mousekey_off:00000086 .Loc.205
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:635    .text.mousekey_off:00000086 .Loc.206
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:638    .text.mousekey_off:0000008a .Loc.207
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:641    .text.mousekey_off:0000008e .Loc.208
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:647    .text.mousekey_off:00000094 .Loc.209
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:648    .text.mousekey_off:00000094 .Loc.210
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:651    .text.mousekey_off:00000098 .Loc.211
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:652    .text.mousekey_off:00000098 .Loc.212
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:655    .text.mousekey_off:0000009c .Loc.213
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:658    .text.mousekey_off:0000009e .Loc.214
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:663    .text.mousekey_off:000000a4 .Loc.215
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:664    .text.mousekey_off:000000a4 .Loc.216
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:667    .text.mousekey_off:000000a8 .Loc.217
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:668    .text.mousekey_off:000000a8 .Loc.218
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:671    .text.mousekey_off:000000ac .Loc.219
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:676    .text.mousekey_off:000000b0 .Loc.220
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:677    .text.mousekey_off:000000b0 .Loc.221
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:680    .text.mousekey_off:000000b4 .Loc.222
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:681    .text.mousekey_off:000000b4 .Loc.223
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:684    .text.mousekey_off:000000b8 .Loc.224
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:689    .text.mousekey_off:000000bc .Loc.225
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:690    .text.mousekey_off:000000bc .Loc.226
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:693    .text.mousekey_off:000000c0 .Loc.227
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:694    .text.mousekey_off:000000c0 .Loc.228
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:697    .text.mousekey_off:000000c4 .Loc.229
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:702    .text.mousekey_off:000000c8 .Loc.230
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:703    .text.mousekey_off:000000c8 .Loc.231
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:706    .text.mousekey_off:000000cc .Loc.232
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:707    .text.mousekey_off:000000cc .Loc.233
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:710    .text.mousekey_off:000000d0 .Loc.234
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:715    .text.mousekey_off:000000d4 .Loc.235
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:716    .text.mousekey_off:000000d4 .Loc.236
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:719    .text.mousekey_off:000000d8 .Loc.237
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:720    .text.mousekey_off:000000d8 .Loc.238
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:723    .text.mousekey_off:000000dc .Loc.239
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:726    .text.mousekey_off:000000de .Loc.240
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:731    .text.mousekey_off:000000e4 .Loc.241
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:732    .text.mousekey_off:000000e4 .Loc.242
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:735    .text.mousekey_off:000000e8 .Loc.243
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:736    .text.mousekey_off:000000e8 .Loc.244
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:739    .text.mousekey_off:000000ec .Loc.245
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:744    .text.mousekey_off:000000f0 .Loc.246
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:745    .text.mousekey_off:000000f0 .Loc.247
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:747    .text.mousekey_off:000000f4 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:749    .text.mousekey_off:000000f6 .Loc.248
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:750    .text.mousekey_off:000000f6 .Loc.249
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:753    .text.mousekey_off:000000fa .Loc.250
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:756    .text.mousekey_off:000000fe L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:762    .text.mousekey_send:00000000 mousekey_send
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:764    .text.mousekey_send:00000000 .Loc.251
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:765    .text.mousekey_send:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:770    .text.mousekey_send:00000000 .Loc.252
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:771    .text.mousekey_send:00000000 .Loc.253
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:776    .text.mousekey_send:00000008 .Loc.254
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:777    .text.mousekey_send:00000008 .Loc.255
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:780    .text.mousekey_send:0000000c .Loc.256
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1072   .bss.last_timer:00000000 last_timer
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:784    .text.mousekey_send:00000014 .Loc.257
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:786    .text.mousekey_send:00000016 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:795    .text.mousekey_task:00000000 mousekey_task
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:797    .text.mousekey_task:00000000 .Loc.258
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:798    .text.mousekey_task:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:815    .text.mousekey_task:00000006 .Loc.259
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:816    .text.mousekey_task:00000006 .Loc.260
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:822    .text.mousekey_task:00000014 .Loc.261
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:824    .text.mousekey_task:00000018 .Loc.262
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1102   .data.mk_interval:00000000 mk_interval
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:829    .text.mousekey_task:00000022 .Loc.263
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1108   .data.mk_delay:00000000 mk_delay
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:836    .text.mousekey_task:0000002e .Loc.264
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:840    .text.mousekey_task:00000034 .Loc.265
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:841    .text.mousekey_task:00000034 .Loc.266
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:846    .text.mousekey_task:00000044 .Loc.267
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:849    .text.mousekey_task:00000048 .Loc.268
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:853    .text.mousekey_task:00000050 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:857    .text.mousekey_task:00000052 .Loc.269
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:863    .text.mousekey_task:0000005a .Loc.270
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:864    .text.mousekey_task:0000005a .Loc.271
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:868    .text.mousekey_task:0000005e .Loc.272
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:869    .text.mousekey_task:0000005e .Loc.273
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:873    .text.mousekey_task:00000064 .Loc.274
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:874    .text.mousekey_task:00000064 .Loc.275
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:877    .text.mousekey_task:00000068 .Loc.276
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:878    .text.mousekey_task:00000068 .Loc.277
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:881    .text.mousekey_task:0000006c .Loc.278
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:884    .text.mousekey_task:00000070 .Loc.279
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:885    .text.mousekey_task:00000070 .Loc.280
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:889    .text.mousekey_task:00000078 .Loc.281
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:890    .text.mousekey_task:00000078 .Loc.282
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:893    .text.mousekey_task:0000007c .Loc.283
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:897    .text.mousekey_task:00000082 .Loc.284
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:898    .text.mousekey_task:00000082 .Loc.285
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:901    .text.mousekey_task:00000086 .Loc.286
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:902    .text.mousekey_task:00000086 .Loc.287
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:905    .text.mousekey_task:0000008a .Loc.288
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:908    .text.mousekey_task:0000008e .Loc.289
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:909    .text.mousekey_task:0000008e .Loc.290
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:913    .text.mousekey_task:00000096 .Loc.291
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:914    .text.mousekey_task:00000096 .Loc.292
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:917    .text.mousekey_task:0000009a .Loc.293
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:921    .text.mousekey_task:000000a0 .Loc.294
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:922    .text.mousekey_task:000000a0 .Loc.295
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:924    .text.mousekey_task:000000a4 .Loc.296
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:927    .text.mousekey_task:000000a8 .Loc.297
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:929    .text.mousekey_task:000000ac .Loc.298
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:932    .text.mousekey_task:000000b0 .Loc.299
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:933    .text.mousekey_task:000000b0 .Loc.300
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:950    .text.mousekey_task:000000d2 .Loc.301
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:951    .text.mousekey_task:000000d2 .Loc.302
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:969    .text.mousekey_task:000000f4 .Loc.303
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:970    .text.mousekey_task:000000f4 .Loc.304
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:973    .text.mousekey_task:000000f8 .Loc.305
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:974    .text.mousekey_task:000000f8 .Loc.306
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:977    .text.mousekey_task:000000fc .Loc.307
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:980    .text.mousekey_task:00000100 .Loc.308
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:981    .text.mousekey_task:00000100 .Loc.309
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:985    .text.mousekey_task:00000108 .Loc.310
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:986    .text.mousekey_task:00000108 .Loc.311
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:989    .text.mousekey_task:0000010c .Loc.312
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:993    .text.mousekey_task:00000112 .Loc.313
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:994    .text.mousekey_task:00000112 .Loc.314
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:997    .text.mousekey_task:00000116 .Loc.315
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:998    .text.mousekey_task:00000116 .Loc.316
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1001   .text.mousekey_task:0000011a .Loc.317
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1004   .text.mousekey_task:0000011e .Loc.318
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1005   .text.mousekey_task:0000011e .Loc.319
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1009   .text.mousekey_task:00000126 .Loc.320
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1010   .text.mousekey_task:00000126 .Loc.321
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1013   .text.mousekey_task:0000012a .Loc.322
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1017   .text.mousekey_task:00000130 .Loc.323
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1019   .text.mousekey_task:00000130 .Loc.324
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1023   .text.mousekey_task:00000136 .Loc.325
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1027   .text.mousekey_task:0000013a .Loc.326
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1028   .text.mousekey_task:0000013a .Loc.327
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1030   .text.mousekey_task:0000013e L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1033   .text.mousekey_task:00000142 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1039   .text.mousekey_clear:00000000 mousekey_clear
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1041   .text.mousekey_clear:00000000 .Loc.328
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1042   .text.mousekey_clear:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1047   .text.mousekey_clear:00000000 .Loc.329
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1048   .text.mousekey_clear:00000000 .Loc.330
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1057   .text.mousekey_clear:0000000e .Loc.331
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1058   .text.mousekey_clear:0000000e .Loc.332
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1060   .text.mousekey_clear:00000012 .Loc.333
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1061   .text.mousekey_clear:00000012 .Loc.334
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1064   .text.mousekey_clear:00000016 .Loc.335
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1066   .text.mousekey_clear:00000018 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:146    .text.move_unit:00000094 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:263    .text.wheel_unit:00000072 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:500    .text.mousekey_on:000000d0 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:759    .text.mousekey_off:000000fe L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:792    .text.mousekey_send:00000016 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1036   .text.mousekey_task:00000142 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1069   .text.mousekey_clear:00000018 L0
+                     .debug_frame:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:56     .text.move_unit:0000002c .L2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:134    .text.move_unit:0000008c .L10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:138    .text.move_unit:00000090 .L11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:75     .text.move_unit:00000042 .L4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:41     .text.move_unit:0000001c .L3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:95     .text.move_unit:0000005e .L12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:128    .text.move_unit:00000086 .L9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:106    .text.move_unit:00000068 .L7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:52     .text.move_unit:00000028 .L6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:183    .text.wheel_unit:00000020 .L14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:254    .text.wheel_unit:0000006e .L24
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:199    .text.wheel_unit:00000030 .L16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:173    .text.wheel_unit:00000016 .L15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:222    .text.wheel_unit:0000004e .L25
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:248    .text.wheel_unit:00000068 .L22
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:234    .text.wheel_unit:0000005a .L20
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:225    .text.wheel_unit:00000050 .L18
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:179    .text.wheel_unit:0000001c .L19
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:290    .text.mousekey_on:00000010 .L27
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:302    .text.mousekey_on:0000001a .L29
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:285    .text.mousekey_on:0000000a .L43
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:318    .text.mousekey_on:0000002a .L30
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:330    .text.mousekey_on:00000034 .L31
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:313    .text.mousekey_on:00000024 .L45
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:344    .text.mousekey_on:00000042 .L32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:357    .text.mousekey_on:0000004e .L33
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:339    .text.mousekey_on:0000003c .L47
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:373    .text.mousekey_on:0000005e .L34
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:385    .text.mousekey_on:00000068 .L35
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:368    .text.mousekey_on:00000058 .L48
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:401    .text.mousekey_on:00000078 .L36
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:414    .text.mousekey_on:00000084 .L37
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:396    .text.mousekey_on:00000072 .L46
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:427    .text.mousekey_on:00000090 .L38
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:440    .text.mousekey_on:0000009c .L39
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:453    .text.mousekey_on:000000a8 .L40
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:472    .text.mousekey_on:000000b8 .L41
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:485    .text.mousekey_on:000000c4 .L42
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:464    .text.mousekey_on:000000b2 .L44
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:467    .text.mousekey_on:000000b6 .L26
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:536    .text.mousekey_off:00000018 .L50
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:562    .text.mousekey_off:00000032 .L55
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:549    .text.mousekey_off:00000026 .L52
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:522    .text.mousekey_off:0000000e .L53
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:526    .text.mousekey_off:00000012 .L51
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:577    .text.mousekey_off:0000004a .L54
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:531    .text.mousekey_off:00000016 .L49
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:586    .text.mousekey_off:00000054 .L56
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:557    .text.mousekey_off:0000002e .L57
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:603    .text.mousekey_off:00000066 .L58
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:616    .text.mousekey_off:00000074 .L59
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:597    .text.mousekey_off:00000060 .L60
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:633    .text.mousekey_off:00000086 .L61
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:646    .text.mousekey_off:00000094 .L62
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:627    .text.mousekey_off:00000080 .L63
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:662    .text.mousekey_off:000000a4 .L64
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:675    .text.mousekey_off:000000b0 .L65
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:657    .text.mousekey_off:0000009e .L77
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:688    .text.mousekey_off:000000bc .L66
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:701    .text.mousekey_off:000000c8 .L67
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:714    .text.mousekey_off:000000d4 .L68
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:730    .text.mousekey_off:000000e4 .L69
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:743    .text.mousekey_off:000000f0 .L70
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:725    .text.mousekey_off:000000de .L78
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:835    .text.mousekey_task:0000002e .L82
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:855    .text.mousekey_task:00000052 .L80
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:862    .text.mousekey_task:0000005a .L84
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1026   .text.mousekey_task:0000013a .L109
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:872    .text.mousekey_task:00000064 .L86
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:883    .text.mousekey_task:00000070 .L87
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:896    .text.mousekey_task:00000082 .L88
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:907    .text.mousekey_task:0000008e .L89
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:920    .text.mousekey_task:000000a0 .L90
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:968    .text.mousekey_task:000000f4 .L91
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:979    .text.mousekey_task:00000100 .L92
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:992    .text.mousekey_task:00000112 .L93
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1003   .text.mousekey_task:0000011e .L94
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1016   .text.mousekey_task:00000130 .L95
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:867    .text.mousekey_task:0000005e .L96
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1053   .text.mousekey_clear:00000008 .L01
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:2242   .debug_abbrev:00000000 .Ldebug_abbrev0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3480   .debug_ranges:00000000 .Ldebug_ranges0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3498   .debug_line:00000000 .Ldebug_line0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1040   .text.mousekey_clear:00000000 .LFB110
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1067   .text.mousekey_clear:00000018 .LFE110
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:763    .text.mousekey_send:00000000 .LFB109
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:787    .text.mousekey_send:00000016 .LFE109
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:775    .text.mousekey_send:00000008 .LVL80
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:779    .text.mousekey_send:0000000c .LVL81
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:505    .text.mousekey_off:00000000 .LFB108
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:757    .text.mousekey_off:000000fe .LFE108
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:2898   .debug_loc:0000003c .LLST3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:2837   .debug_loc:00000000 .LVUS3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:268    .text.mousekey_on:00000000 .LFB107
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:498    .text.mousekey_on:000000d0 .LFE107
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3131   .debug_loc:000001fb .LLST2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3066   .debug_loc:000001bb .LVUS2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:282    .text.mousekey_on:00000008 .LVL19
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:298    .text.mousekey_on:00000018 .LVL21
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:310    .text.mousekey_on:00000022 .LVL23
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:326    .text.mousekey_on:00000032 .LVL25
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:338    .text.mousekey_on:0000003c .LVL27
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:352    .text.mousekey_on:0000004a .LVL29
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:365    .text.mousekey_on:00000056 .LVL31
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:381    .text.mousekey_on:00000066 .LVL33
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:796    .text.mousekey_task:00000000 .LFB106
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1034   .text.mousekey_task:00000142 .LFE106
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3310   .debug_loc:00000393 .LLST4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:820    .text.mousekey_task:00000012 .LVL82
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:880    .text.mousekey_task:0000006c .LVL83
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:892    .text.mousekey_task:0000007c .LVL84
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:904    .text.mousekey_task:0000008a .LVL85
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:916    .text.mousekey_task:0000009a .LVL86
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:976    .text.mousekey_task:000000fc .LVL93
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:988    .text.mousekey_task:0000010c .LVL94
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1000   .text.mousekey_task:0000011a .LVL95
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1012   .text.mousekey_task:0000012a .LVL96
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1025   .text.mousekey_task:0000013a .LVL97
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:149    .text.wheel_unit:00000000 .LFB105
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:261    .text.wheel_unit:00000072 .LFE105
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3348   .debug_loc:000003d9 .LLST1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3337   .debug_loc:000003cf .LVUS1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:13     .text.move_unit:00000000 .LFB104
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:144    .text.move_unit:00000094 .LFE104
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3407   .debug_loc:0000043b .LLST0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:3396   .debug_loc:00000431 .LVUS0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:504    .text.mousekey_off:00000000 .LVL50
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:519    .text.mousekey_off:0000000c .LVL51
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:535    .text.mousekey_off:00000018 .LVL52
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:543    .text.mousekey_off:00000020 .LVL53
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:548    .text.mousekey_off:00000026 .LVL54
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:561    .text.mousekey_off:00000032 .LVL55
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:576    .text.mousekey_off:0000004a .LVL56
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:593    .text.mousekey_off:0000005c .LVL57
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:602    .text.mousekey_off:00000066 .LVL58
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:610    .text.mousekey_off:0000006e .LVL59
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:615    .text.mousekey_off:00000074 .LVL60
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:623    .text.mousekey_off:0000007c .LVL61
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:632    .text.mousekey_off:00000086 .LVL62
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:640    .text.mousekey_off:0000008e .LVL63
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:645    .text.mousekey_off:00000094 .LVL64
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:654    .text.mousekey_off:0000009c .LVL65
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:661    .text.mousekey_off:000000a4 .LVL66
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:670    .text.mousekey_off:000000ac .LVL67
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:674    .text.mousekey_off:000000b0 .LVL68
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:683    .text.mousekey_off:000000b8 .LVL69
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:687    .text.mousekey_off:000000bc .LVL70
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:696    .text.mousekey_off:000000c4 .LVL71
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:700    .text.mousekey_off:000000c8 .LVL72
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:709    .text.mousekey_off:000000d0 .LVL73
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:713    .text.mousekey_off:000000d4 .LVL74
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:722    .text.mousekey_off:000000dc .LVL75
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:729    .text.mousekey_off:000000e4 .LVL76
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:738    .text.mousekey_off:000000ec .LVL77
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:742    .text.mousekey_off:000000f0 .LVL78
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:752    .text.mousekey_off:000000fa .LVL79
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:267    .text.mousekey_on:00000000 .LVL18
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:289    .text.mousekey_on:00000010 .LVL20
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:301    .text.mousekey_on:0000001a .LVL22
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:317    .text.mousekey_on:0000002a .LVL24
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:329    .text.mousekey_on:00000034 .LVL26
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:343    .text.mousekey_on:00000042 .LVL28
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:356    .text.mousekey_on:0000004e .LVL30
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:372    .text.mousekey_on:0000005e .LVL32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:384    .text.mousekey_on:00000068 .LVL34
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:393    .text.mousekey_on:00000070 .LVL35
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:400    .text.mousekey_on:00000078 .LVL36
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:409    .text.mousekey_on:00000080 .LVL37
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:413    .text.mousekey_on:00000084 .LVL38
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:422    .text.mousekey_on:0000008c .LVL39
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:426    .text.mousekey_on:00000090 .LVL40
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:435    .text.mousekey_on:00000098 .LVL41
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:439    .text.mousekey_on:0000009c .LVL42
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:448    .text.mousekey_on:000000a4 .LVL43
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:452    .text.mousekey_on:000000a8 .LVL44
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:461    .text.mousekey_on:000000b0 .LVL45
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:471    .text.mousekey_on:000000b8 .LVL46
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:480    .text.mousekey_on:000000c0 .LVL47
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:484    .text.mousekey_on:000000c4 .LVL48
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:493    .text.mousekey_on:000000cc .LVL49
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:800    .text.mousekey_task:00000002 .LCFI0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:804    .text.mousekey_task:00000004 .LCFI1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:808    .text.mousekey_task:00000006 .LCFI2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:172    .text.wheel_unit:00000016 .LVL9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:178    .text.wheel_unit:0000001c .LVL10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:195    .text.wheel_unit:0000002e .LVL11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:198    .text.wheel_unit:00000030 .LVL12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:224    .text.wheel_unit:00000050 .LVL13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:233    .text.wheel_unit:0000005a .LVL14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:244    .text.wheel_unit:00000066 .LVL15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:247    .text.wheel_unit:00000068 .LVL16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:253    .text.wheel_unit:0000006e .LVL17
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:40     .text.move_unit:0000001c .LVL0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:51     .text.move_unit:00000028 .LVL1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:71     .text.move_unit:00000040 .LVL2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:74     .text.move_unit:00000042 .LVL3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:102    .text.move_unit:00000066 .LVL4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:105    .text.move_unit:00000068 .LVL5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:124    .text.move_unit:00000084 .LVL6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:127    .text.move_unit:00000086 .LVL7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:133    .text.move_unit:0000008c .LVL8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//ccIrgFL7.s:1140   .debug_info:00000000 .Ldebug_info0
+
+UNDEFINED SYMBOLS
+__divmodhi4
+host_mouse_send
+timer_read
+__floatsisf
+__mulsf3
+__fixsfsi
+timer_elapsed
+__do_copy_data
+__do_clear_bss

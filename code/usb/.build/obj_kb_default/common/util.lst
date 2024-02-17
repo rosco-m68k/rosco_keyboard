@@ -1,0 +1,1199 @@
+   1               		.file	"util.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               		.section	.text.bitpop,"ax",@progbits
+  11               	.global	bitpop
+  13               	bitpop:
+  14               	.LVL0:
+  15               	.LFB0:
+  16               		.file 1 "./tmk_core/common/util.c"
+   1:./tmk_core/common/util.c **** /*
+   2:./tmk_core/common/util.c **** Copyright 2011 Jun Wako <wakojun@gmail.com>
+   3:./tmk_core/common/util.c **** 
+   4:./tmk_core/common/util.c **** This program is free software: you can redistribute it and/or modify
+   5:./tmk_core/common/util.c **** it under the terms of the GNU General Public License as published by
+   6:./tmk_core/common/util.c **** the Free Software Foundation, either version 2 of the License, or
+   7:./tmk_core/common/util.c **** (at your option) any later version.
+   8:./tmk_core/common/util.c **** 
+   9:./tmk_core/common/util.c **** This program is distributed in the hope that it will be useful,
+  10:./tmk_core/common/util.c **** but WITHOUT ANY WARRANTY; without even the implied warranty of
+  11:./tmk_core/common/util.c **** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  12:./tmk_core/common/util.c **** GNU General Public License for more details.
+  13:./tmk_core/common/util.c **** 
+  14:./tmk_core/common/util.c **** You should have received a copy of the GNU General Public License
+  15:./tmk_core/common/util.c **** along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  16:./tmk_core/common/util.c **** */
+  17:./tmk_core/common/util.c **** 
+  18:./tmk_core/common/util.c **** #include "util.h"
+  19:./tmk_core/common/util.c **** 
+  20:./tmk_core/common/util.c **** // bit population - return number of on-bit
+  21:./tmk_core/common/util.c **** uint8_t bitpop(uint8_t bits)
+  22:./tmk_core/common/util.c **** {
+  17               		.loc 1 22 1 view -0
+  18               		.cfi_startproc
+  19               	/* prologue: function */
+  20               	/* frame size = 0 */
+  21               	/* stack size = 0 */
+  22               	.L__stack_usage = 0
+  23:./tmk_core/common/util.c ****     uint8_t c;
+  23               		.loc 1 23 5 view .LVU1
+  24:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+  24               		.loc 1 24 5 view .LVU2
+  25               		.loc 1 24 12 is_stmt 0 view .LVU3
+  26 0000 90E0      		ldi r25,0
+  27               	.LVL1:
+  28               	.L2:
+  29               		.loc 1 24 17 is_stmt 1 discriminator 1 view .LVU4
+  30               		.loc 1 24 5 is_stmt 0 discriminator 1 view .LVU5
+  31 0002 8111      		cpse r24,__zero_reg__
+  32 0004 00C0      		rjmp .L3
+  25:./tmk_core/common/util.c ****         bits &= bits - 1;
+  26:./tmk_core/common/util.c ****     return c;
+  33               		.loc 1 26 5 is_stmt 1 view .LVU6
+  27:./tmk_core/common/util.c **** /*
+  28:./tmk_core/common/util.c ****     const uint8_t bit_count[] = { 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4 };
+  29:./tmk_core/common/util.c ****     return bit_count[bits>>4] + bit_count[bits&0x0F]
+  30:./tmk_core/common/util.c **** */
+  31:./tmk_core/common/util.c **** }
+  34               		.loc 1 31 1 is_stmt 0 view .LVU7
+  35 0006 892F      		mov r24,r25
+  36               	.LVL2:
+  37               	/* epilogue start */
+  38               		.loc 1 31 1 view .LVU8
+  39 0008 0895      		ret
+  40               	.LVL3:
+  41               	.L3:
+  25:./tmk_core/common/util.c ****         bits &= bits - 1;
+  42               		.loc 1 25 9 is_stmt 1 discriminator 3 view .LVU9
+  25:./tmk_core/common/util.c ****         bits &= bits - 1;
+  43               		.loc 1 25 22 is_stmt 0 discriminator 3 view .LVU10
+  44 000a 2FEF      		ldi r18,lo8(-1)
+  45 000c 280F      		add r18,r24
+  25:./tmk_core/common/util.c ****         bits &= bits - 1;
+  46               		.loc 1 25 14 discriminator 3 view .LVU11
+  47 000e 8223      		and r24,r18
+  48               	.LVL4:
+  24:./tmk_core/common/util.c ****         bits &= bits - 1;
+  49               		.loc 1 24 23 is_stmt 1 discriminator 3 view .LVU12
+  24:./tmk_core/common/util.c ****         bits &= bits - 1;
+  50               		.loc 1 24 24 is_stmt 0 discriminator 3 view .LVU13
+  51 0010 9F5F      		subi r25,lo8(-(1))
+  52               	.LVL5:
+  24:./tmk_core/common/util.c ****         bits &= bits - 1;
+  53               		.loc 1 24 24 discriminator 3 view .LVU14
+  54 0012 00C0      		rjmp .L2
+  55               		.cfi_endproc
+  56               	.LFE0:
+  58               		.section	.text.bitpop16,"ax",@progbits
+  59               	.global	bitpop16
+  61               	bitpop16:
+  62               	.LVL6:
+  63               	.LFB1:
+  32:./tmk_core/common/util.c **** 
+  33:./tmk_core/common/util.c **** uint8_t bitpop16(uint16_t bits)
+  34:./tmk_core/common/util.c **** {
+  64               		.loc 1 34 1 is_stmt 1 view -0
+  65               		.cfi_startproc
+  66               	/* prologue: function */
+  67               	/* frame size = 0 */
+  68               	/* stack size = 0 */
+  69               	.L__stack_usage = 0
+  35:./tmk_core/common/util.c ****     uint8_t c;
+  70               		.loc 1 35 5 view .LVU16
+  36:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+  71               		.loc 1 36 5 view .LVU17
+  72               		.loc 1 36 12 is_stmt 0 view .LVU18
+  73 0000 20E0      		ldi r18,0
+  74               	.LVL7:
+  75               	.L5:
+  76               		.loc 1 36 17 is_stmt 1 discriminator 1 view .LVU19
+  77               		.loc 1 36 5 is_stmt 0 discriminator 1 view .LVU20
+  78 0002 0097      		sbiw r24,0
+  79 0004 01F4      		brne .L6
+  37:./tmk_core/common/util.c ****         bits &= bits - 1;
+  38:./tmk_core/common/util.c ****     return c;
+  80               		.loc 1 38 5 is_stmt 1 view .LVU21
+  39:./tmk_core/common/util.c **** }
+  81               		.loc 1 39 1 is_stmt 0 view .LVU22
+  82 0006 822F      		mov r24,r18
+  83               	.LVL8:
+  84               	/* epilogue start */
+  85               		.loc 1 39 1 view .LVU23
+  86 0008 0895      		ret
+  87               	.LVL9:
+  88               	.L6:
+  37:./tmk_core/common/util.c ****         bits &= bits - 1;
+  89               		.loc 1 37 9 is_stmt 1 discriminator 3 view .LVU24
+  37:./tmk_core/common/util.c ****         bits &= bits - 1;
+  90               		.loc 1 37 22 is_stmt 0 discriminator 3 view .LVU25
+  91 000a AC01      		movw r20,r24
+  92 000c 4150      		subi r20,1
+  93 000e 5109      		sbc r21,__zero_reg__
+  37:./tmk_core/common/util.c ****         bits &= bits - 1;
+  94               		.loc 1 37 14 discriminator 3 view .LVU26
+  95 0010 8423      		and r24,r20
+  96               	.LVL10:
+  37:./tmk_core/common/util.c ****         bits &= bits - 1;
+  97               		.loc 1 37 14 discriminator 3 view .LVU27
+  98 0012 9523      		and r25,r21
+  99               	.LVL11:
+  36:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 100               		.loc 1 36 23 is_stmt 1 discriminator 3 view .LVU28
+  36:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 101               		.loc 1 36 24 is_stmt 0 discriminator 3 view .LVU29
+ 102 0014 2F5F      		subi r18,lo8(-(1))
+ 103               	.LVL12:
+  36:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 104               		.loc 1 36 24 discriminator 3 view .LVU30
+ 105 0016 00C0      		rjmp .L5
+ 106               		.cfi_endproc
+ 107               	.LFE1:
+ 109               		.section	.text.bitpop32,"ax",@progbits
+ 110               	.global	bitpop32
+ 112               	bitpop32:
+ 113               	.LVL13:
+ 114               	.LFB2:
+  40:./tmk_core/common/util.c **** 
+  41:./tmk_core/common/util.c **** uint8_t bitpop32(uint32_t bits)
+  42:./tmk_core/common/util.c **** {
+ 115               		.loc 1 42 1 is_stmt 1 view -0
+ 116               		.cfi_startproc
+ 117               		.loc 1 42 1 is_stmt 0 view .LVU32
+ 118 0000 CF92      		push r12
+ 119               	.LCFI0:
+ 120               		.cfi_def_cfa_offset 3
+ 121               		.cfi_offset 12, -2
+ 122 0002 DF92      		push r13
+ 123               	.LCFI1:
+ 124               		.cfi_def_cfa_offset 4
+ 125               		.cfi_offset 13, -3
+ 126 0004 EF92      		push r14
+ 127               	.LCFI2:
+ 128               		.cfi_def_cfa_offset 5
+ 129               		.cfi_offset 14, -4
+ 130 0006 FF92      		push r15
+ 131               	.LCFI3:
+ 132               		.cfi_def_cfa_offset 6
+ 133               		.cfi_offset 15, -5
+ 134               	/* prologue: function */
+ 135               	/* frame size = 0 */
+ 136               	/* stack size = 4 */
+ 137               	.L__stack_usage = 4
+  43:./tmk_core/common/util.c ****     uint8_t c;
+ 138               		.loc 1 43 5 is_stmt 1 view .LVU33
+  44:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 139               		.loc 1 44 5 view .LVU34
+ 140               	.LVL14:
+ 141               		.loc 1 44 12 is_stmt 0 view .LVU35
+ 142 0008 20E0      		ldi r18,0
+ 143               	.LVL15:
+ 144               	.L8:
+ 145               		.loc 1 44 17 is_stmt 1 discriminator 1 view .LVU36
+ 146               		.loc 1 44 5 is_stmt 0 discriminator 1 view .LVU37
+ 147 000a 6115      		cp r22,__zero_reg__
+ 148 000c 7105      		cpc r23,__zero_reg__
+ 149 000e 8105      		cpc r24,__zero_reg__
+ 150 0010 9105      		cpc r25,__zero_reg__
+ 151 0012 01F4      		brne .L9
+  45:./tmk_core/common/util.c ****         bits &= bits - 1;
+  46:./tmk_core/common/util.c ****     return c;
+ 152               		.loc 1 46 5 is_stmt 1 view .LVU38
+  47:./tmk_core/common/util.c **** }
+ 153               		.loc 1 47 1 is_stmt 0 view .LVU39
+ 154 0014 822F      		mov r24,r18
+ 155               	/* epilogue start */
+ 156 0016 FF90      		pop r15
+ 157 0018 EF90      		pop r14
+ 158 001a DF90      		pop r13
+ 159 001c CF90      		pop r12
+ 160 001e 0895      		ret
+ 161               	.L9:
+  45:./tmk_core/common/util.c ****         bits &= bits - 1;
+ 162               		.loc 1 45 9 is_stmt 1 discriminator 3 view .LVU40
+  45:./tmk_core/common/util.c ****         bits &= bits - 1;
+ 163               		.loc 1 45 22 is_stmt 0 discriminator 3 view .LVU41
+ 164 0020 6B01      		movw r12,r22
+ 165 0022 7C01      		movw r14,r24
+ 166 0024 31E0      		ldi r19,1
+ 167 0026 C31A      		sub r12,r19
+ 168 0028 D108      		sbc r13,__zero_reg__
+ 169 002a E108      		sbc r14,__zero_reg__
+ 170 002c F108      		sbc r15,__zero_reg__
+  45:./tmk_core/common/util.c ****         bits &= bits - 1;
+ 171               		.loc 1 45 14 discriminator 3 view .LVU42
+ 172 002e 6C21      		and r22,r12
+ 173               	.LVL16:
+  45:./tmk_core/common/util.c ****         bits &= bits - 1;
+ 174               		.loc 1 45 14 discriminator 3 view .LVU43
+ 175 0030 7D21      		and r23,r13
+ 176 0032 8E21      		and r24,r14
+ 177 0034 9F21      		and r25,r15
+ 178               	.LVL17:
+  44:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 179               		.loc 1 44 23 is_stmt 1 discriminator 3 view .LVU44
+  44:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 180               		.loc 1 44 24 is_stmt 0 discriminator 3 view .LVU45
+ 181 0036 2F5F      		subi r18,lo8(-(1))
+ 182               	.LVL18:
+  44:./tmk_core/common/util.c ****     for (c = 0; bits; c++)
+ 183               		.loc 1 44 24 discriminator 3 view .LVU46
+ 184 0038 00C0      		rjmp .L8
+ 185               		.cfi_endproc
+ 186               	.LFE2:
+ 188               		.section	.text.biton,"ax",@progbits
+ 189               	.global	biton
+ 191               	biton:
+ 192               	.LVL19:
+ 193               	.LFB3:
+  48:./tmk_core/common/util.c **** 
+  49:./tmk_core/common/util.c **** // most significant on-bit - return highest location of on-bit
+  50:./tmk_core/common/util.c **** // NOTE: return 0 when bit0 is on or all bits are off
+  51:./tmk_core/common/util.c **** uint8_t biton(uint8_t bits)
+  52:./tmk_core/common/util.c **** {
+ 194               		.loc 1 52 1 is_stmt 1 view -0
+ 195               		.cfi_startproc
+ 196               	/* prologue: function */
+ 197               	/* frame size = 0 */
+ 198               	/* stack size = 0 */
+ 199               	.L__stack_usage = 0
+  53:./tmk_core/common/util.c ****     uint8_t n = 0;
+ 200               		.loc 1 53 5 view .LVU48
+  54:./tmk_core/common/util.c ****     if (bits >> 4) { bits >>= 4; n += 4;}
+ 201               		.loc 1 54 5 view .LVU49
+ 202               		.loc 1 54 9 is_stmt 0 view .LVU50
+ 203 0000 982F      		mov r25,r24
+ 204 0002 9295      		swap r25
+ 205 0004 9F70      		andi r25,lo8(15)
+ 206               		.loc 1 54 8 view .LVU51
+ 207 0006 01F0      		breq .L11
+ 208 0008 892F      		mov r24,r25
+ 209               	.LVL20:
+ 210               		.loc 1 54 36 view .LVU52
+ 211 000a 94E0      		ldi r25,lo8(4)
+ 212               	.L11:
+ 213               	.LVL21:
+  55:./tmk_core/common/util.c ****     if (bits >> 2) { bits >>= 2; n += 2;}
+ 214               		.loc 1 55 5 is_stmt 1 view .LVU53
+ 215               		.loc 1 55 9 is_stmt 0 view .LVU54
+ 216 000c 282F      		mov r18,r24
+ 217 000e 2695      		lsr r18
+ 218 0010 2695      		lsr r18
+ 219               		.loc 1 55 8 view .LVU55
+ 220 0012 01F0      		breq .L12
+ 221               		.loc 1 55 22 is_stmt 1 discriminator 1 view .LVU56
+ 222               	.LVL22:
+ 223               		.loc 1 55 34 discriminator 1 view .LVU57
+ 224               		.loc 1 55 36 is_stmt 0 discriminator 1 view .LVU58
+ 225 0014 9E5F      		subi r25,lo8(-(2))
+ 226               	.LVL23:
+ 227               		.loc 1 55 36 discriminator 1 view .LVU59
+ 228 0016 822F      		mov r24,r18
+ 229               	.LVL24:
+ 230               	.L12:
+  56:./tmk_core/common/util.c ****     if (bits >> 1) { bits >>= 1; n += 1;}
+ 231               		.loc 1 56 5 is_stmt 1 view .LVU60
+ 232               		.loc 1 56 9 is_stmt 0 view .LVU61
+ 233 0018 8695      		lsr r24
+ 234               	.LVL25:
+ 235               		.loc 1 56 8 view .LVU62
+ 236 001a 01F0      		breq .L10
+ 237               		.loc 1 56 22 is_stmt 1 discriminator 1 view .LVU63
+ 238               	.LVL26:
+ 239               		.loc 1 56 34 discriminator 1 view .LVU64
+ 240               		.loc 1 56 36 is_stmt 0 discriminator 1 view .LVU65
+ 241 001c 9F5F      		subi r25,lo8(-(1))
+ 242               	.LVL27:
+  57:./tmk_core/common/util.c ****     return n;
+ 243               		.loc 1 57 5 is_stmt 1 discriminator 1 view .LVU66
+ 244               	.L10:
+  58:./tmk_core/common/util.c **** }
+ 245               		.loc 1 58 1 is_stmt 0 view .LVU67
+ 246 001e 892F      		mov r24,r25
+ 247               	/* epilogue start */
+ 248 0020 0895      		ret
+ 249               		.cfi_endproc
+ 250               	.LFE3:
+ 252               		.section	.text.biton16,"ax",@progbits
+ 253               	.global	biton16
+ 255               	biton16:
+ 256               	.LVL28:
+ 257               	.LFB4:
+  59:./tmk_core/common/util.c **** 
+  60:./tmk_core/common/util.c **** uint8_t biton16(uint16_t bits)
+  61:./tmk_core/common/util.c **** {
+ 258               		.loc 1 61 1 is_stmt 1 view -0
+ 259               		.cfi_startproc
+ 260               	/* prologue: function */
+ 261               	/* frame size = 0 */
+ 262               	/* stack size = 0 */
+ 263               	.L__stack_usage = 0
+  62:./tmk_core/common/util.c ****     uint8_t n = 0;
+ 264               		.loc 1 62 5 view .LVU69
+  63:./tmk_core/common/util.c ****     if (bits >> 8) { bits >>= 8; n += 8;}
+ 265               		.loc 1 63 5 view .LVU70
+ 266               		.loc 1 63 14 is_stmt 0 view .LVU71
+ 267 0000 292F      		mov r18,r25
+ 268 0002 3327      		clr r19
+  62:./tmk_core/common/util.c ****     uint8_t n = 0;
+ 269               		.loc 1 62 13 view .LVU72
+ 270 0004 40E0      		ldi r20,0
+ 271               		.loc 1 63 8 view .LVU73
+ 272 0006 2115      		cp r18,__zero_reg__
+ 273 0008 3105      		cpc r19,__zero_reg__
+ 274 000a 01F0      		breq .L24
+ 275 000c C901      		movw r24,r18
+ 276               	.LVL29:
+ 277               		.loc 1 63 36 view .LVU74
+ 278 000e 48E0      		ldi r20,lo8(8)
+ 279               	.L24:
+ 280               	.LVL30:
+  64:./tmk_core/common/util.c ****     if (bits >> 4) { bits >>= 4; n += 4;}
+ 281               		.loc 1 64 5 is_stmt 1 view .LVU75
+ 282               		.loc 1 64 14 is_stmt 0 view .LVU76
+ 283 0010 9C01      		movw r18,r24
+ 284 0012 64E0      		ldi r22,4
+ 285               		1:
+ 286 0014 3695      		lsr r19
+ 287 0016 2795      		ror r18
+ 288 0018 6A95      		dec r22
+ 289 001a 01F4      		brne 1b
+ 290               		.loc 1 64 8 view .LVU77
+ 291 001c 2115      		cp r18,__zero_reg__
+ 292 001e 3105      		cpc r19,__zero_reg__
+ 293 0020 01F0      		breq .L25
+ 294               		.loc 1 64 22 is_stmt 1 discriminator 1 view .LVU78
+ 295               	.LVL31:
+ 296               		.loc 1 64 34 discriminator 1 view .LVU79
+ 297               		.loc 1 64 36 is_stmt 0 discriminator 1 view .LVU80
+ 298 0022 4C5F      		subi r20,lo8(-(4))
+ 299               	.LVL32:
+ 300               		.loc 1 64 36 discriminator 1 view .LVU81
+ 301 0024 C901      		movw r24,r18
+ 302               	.LVL33:
+ 303               	.L25:
+  65:./tmk_core/common/util.c ****     if (bits >> 2) { bits >>= 2; n += 2;}
+ 304               		.loc 1 65 5 is_stmt 1 view .LVU82
+ 305               		.loc 1 65 14 is_stmt 0 view .LVU83
+ 306 0026 9C01      		movw r18,r24
+ 307 0028 3695      		lsr r19
+ 308 002a 2795      		ror r18
+ 309 002c 3695      		lsr r19
+ 310 002e 2795      		ror r18
+ 311               		.loc 1 65 8 view .LVU84
+ 312 0030 2115      		cp r18,__zero_reg__
+ 313 0032 3105      		cpc r19,__zero_reg__
+ 314 0034 01F0      		breq .L26
+ 315               		.loc 1 65 22 is_stmt 1 discriminator 1 view .LVU85
+ 316               	.LVL34:
+ 317               		.loc 1 65 34 discriminator 1 view .LVU86
+ 318               		.loc 1 65 36 is_stmt 0 discriminator 1 view .LVU87
+ 319 0036 4E5F      		subi r20,lo8(-(2))
+ 320               	.LVL35:
+ 321               		.loc 1 65 36 discriminator 1 view .LVU88
+ 322 0038 C901      		movw r24,r18
+ 323               	.LVL36:
+ 324               	.L26:
+  66:./tmk_core/common/util.c ****     if (bits >> 1) { bits >>= 1; n += 1;}
+ 325               		.loc 1 66 5 is_stmt 1 view .LVU89
+ 326               		.loc 1 66 14 is_stmt 0 view .LVU90
+ 327 003a 9695      		lsr r25
+ 328 003c 8795      		ror r24
+ 329               	.LVL37:
+ 330               		.loc 1 66 8 view .LVU91
+ 331 003e 892B      		or r24,r25
+ 332 0040 01F0      		breq .L23
+ 333               		.loc 1 66 22 is_stmt 1 discriminator 1 view .LVU92
+ 334               	.LVL38:
+ 335               		.loc 1 66 34 discriminator 1 view .LVU93
+ 336               		.loc 1 66 36 is_stmt 0 discriminator 1 view .LVU94
+ 337 0042 4F5F      		subi r20,lo8(-(1))
+ 338               	.LVL39:
+  67:./tmk_core/common/util.c ****     return n;
+ 339               		.loc 1 67 5 is_stmt 1 discriminator 1 view .LVU95
+ 340               	.L23:
+  68:./tmk_core/common/util.c **** }
+ 341               		.loc 1 68 1 is_stmt 0 view .LVU96
+ 342 0044 842F      		mov r24,r20
+ 343               	/* epilogue start */
+ 344 0046 0895      		ret
+ 345               		.cfi_endproc
+ 346               	.LFE4:
+ 348               		.section	.text.biton32,"ax",@progbits
+ 349               	.global	biton32
+ 351               	biton32:
+ 352               	.LVL40:
+ 353               	.LFB5:
+  69:./tmk_core/common/util.c **** 
+  70:./tmk_core/common/util.c **** uint8_t biton32(uint32_t bits)
+  71:./tmk_core/common/util.c **** {
+ 354               		.loc 1 71 1 is_stmt 1 view -0
+ 355               		.cfi_startproc
+ 356               		.loc 1 71 1 is_stmt 0 view .LVU98
+ 357 0000 CF92      		push r12
+ 358               	.LCFI4:
+ 359               		.cfi_def_cfa_offset 3
+ 360               		.cfi_offset 12, -2
+ 361 0002 DF92      		push r13
+ 362               	.LCFI5:
+ 363               		.cfi_def_cfa_offset 4
+ 364               		.cfi_offset 13, -3
+ 365 0004 EF92      		push r14
+ 366               	.LCFI6:
+ 367               		.cfi_def_cfa_offset 5
+ 368               		.cfi_offset 14, -4
+ 369 0006 FF92      		push r15
+ 370               	.LCFI7:
+ 371               		.cfi_def_cfa_offset 6
+ 372               		.cfi_offset 15, -5
+ 373               	/* prologue: function */
+ 374               	/* frame size = 0 */
+ 375               	/* stack size = 4 */
+ 376               	.L__stack_usage = 4
+  72:./tmk_core/common/util.c ****     uint8_t n = 0;
+ 377               		.loc 1 72 5 is_stmt 1 view .LVU99
+ 378               	.LVL41:
+  73:./tmk_core/common/util.c ****     if (bits >>16) { bits >>=16; n +=16;}
+ 379               		.loc 1 73 5 view .LVU100
+ 380               		.loc 1 73 14 is_stmt 0 view .LVU101
+ 381 0008 6C01      		movw r12,r24
+ 382 000a EE24      		clr r14
+ 383 000c FF24      		clr r15
+  72:./tmk_core/common/util.c ****     uint8_t n = 0;
+ 384               		.loc 1 72 13 view .LVU102
+ 385 000e 20E0      		ldi r18,0
+ 386               		.loc 1 73 8 view .LVU103
+ 387 0010 C114      		cp r12,__zero_reg__
+ 388 0012 D104      		cpc r13,__zero_reg__
+ 389 0014 E104      		cpc r14,__zero_reg__
+ 390 0016 F104      		cpc r15,__zero_reg__
+ 391 0018 01F0      		breq .L39
+ 392 001a C701      		movw r24,r14
+ 393 001c B601      		movw r22,r12
+ 394               	.LVL42:
+ 395               		.loc 1 73 36 view .LVU104
+ 396 001e 20E1      		ldi r18,lo8(16)
+ 397               	.L39:
+ 398               	.LVL43:
+  74:./tmk_core/common/util.c ****     if (bits >> 8) { bits >>= 8; n += 8;}
+ 399               		.loc 1 74 5 is_stmt 1 view .LVU105
+ 400               		.loc 1 74 14 is_stmt 0 view .LVU106
+ 401 0020 C72E      		mov r12,r23
+ 402 0022 D82E      		mov r13,r24
+ 403 0024 E92E      		mov r14,r25
+ 404 0026 FF24      		clr r15
+ 405               		.loc 1 74 8 view .LVU107
+ 406 0028 C114      		cp r12,__zero_reg__
+ 407 002a D104      		cpc r13,__zero_reg__
+ 408 002c E104      		cpc r14,__zero_reg__
+ 409 002e F104      		cpc r15,__zero_reg__
+ 410 0030 01F0      		breq .L40
+ 411               		.loc 1 74 22 is_stmt 1 discriminator 1 view .LVU108
+ 412               	.LVL44:
+ 413               		.loc 1 74 34 discriminator 1 view .LVU109
+ 414               		.loc 1 74 36 is_stmt 0 discriminator 1 view .LVU110
+ 415 0032 285F      		subi r18,lo8(-(8))
+ 416               	.LVL45:
+ 417               		.loc 1 74 36 discriminator 1 view .LVU111
+ 418 0034 C701      		movw r24,r14
+ 419 0036 B601      		movw r22,r12
+ 420               	.LVL46:
+ 421               	.L40:
+  75:./tmk_core/common/util.c ****     if (bits >> 4) { bits >>= 4; n += 4;}
+ 422               		.loc 1 75 5 is_stmt 1 view .LVU112
+ 423               		.loc 1 75 14 is_stmt 0 view .LVU113
+ 424 0038 6B01      		movw r12,r22
+ 425 003a 7C01      		movw r14,r24
+ 426 003c 54E0      		ldi r21,4
+ 427               		1:
+ 428 003e F694      		lsr r15
+ 429 0040 E794      		ror r14
+ 430 0042 D794      		ror r13
+ 431 0044 C794      		ror r12
+ 432 0046 5A95      		dec r21
+ 433 0048 01F4      		brne 1b
+ 434               		.loc 1 75 8 view .LVU114
+ 435 004a C114      		cp r12,__zero_reg__
+ 436 004c D104      		cpc r13,__zero_reg__
+ 437 004e E104      		cpc r14,__zero_reg__
+ 438 0050 F104      		cpc r15,__zero_reg__
+ 439 0052 01F0      		breq .L41
+ 440               		.loc 1 75 22 is_stmt 1 discriminator 1 view .LVU115
+ 441               	.LVL47:
+ 442               		.loc 1 75 34 discriminator 1 view .LVU116
+ 443               		.loc 1 75 36 is_stmt 0 discriminator 1 view .LVU117
+ 444 0054 2C5F      		subi r18,lo8(-(4))
+ 445               	.LVL48:
+ 446               		.loc 1 75 36 discriminator 1 view .LVU118
+ 447 0056 C701      		movw r24,r14
+ 448 0058 B601      		movw r22,r12
+ 449               	.LVL49:
+ 450               	.L41:
+  76:./tmk_core/common/util.c ****     if (bits >> 2) { bits >>= 2; n += 2;}
+ 451               		.loc 1 76 5 is_stmt 1 view .LVU119
+ 452               		.loc 1 76 14 is_stmt 0 view .LVU120
+ 453 005a 6B01      		movw r12,r22
+ 454 005c 7C01      		movw r14,r24
+ 455 005e 42E0      		ldi r20,2
+ 456               		1:
+ 457 0060 F694      		lsr r15
+ 458 0062 E794      		ror r14
+ 459 0064 D794      		ror r13
+ 460 0066 C794      		ror r12
+ 461 0068 4A95      		dec r20
+ 462 006a 01F4      		brne 1b
+ 463               		.loc 1 76 8 view .LVU121
+ 464 006c C114      		cp r12,__zero_reg__
+ 465 006e D104      		cpc r13,__zero_reg__
+ 466 0070 E104      		cpc r14,__zero_reg__
+ 467 0072 F104      		cpc r15,__zero_reg__
+ 468 0074 01F0      		breq .L42
+ 469               		.loc 1 76 22 is_stmt 1 discriminator 1 view .LVU122
+ 470               	.LVL50:
+ 471               		.loc 1 76 34 discriminator 1 view .LVU123
+ 472               		.loc 1 76 36 is_stmt 0 discriminator 1 view .LVU124
+ 473 0076 2E5F      		subi r18,lo8(-(2))
+ 474               	.LVL51:
+ 475               		.loc 1 76 36 discriminator 1 view .LVU125
+ 476 0078 C701      		movw r24,r14
+ 477 007a B601      		movw r22,r12
+ 478               	.LVL52:
+ 479               	.L42:
+  77:./tmk_core/common/util.c ****     if (bits >> 1) { bits >>= 1; n += 1;}
+ 480               		.loc 1 77 5 is_stmt 1 view .LVU126
+ 481               		.loc 1 77 14 is_stmt 0 view .LVU127
+ 482 007c 9695      		lsr r25
+ 483 007e 8795      		ror r24
+ 484 0080 7795      		ror r23
+ 485 0082 6795      		ror r22
+ 486               	.LVL53:
+ 487               		.loc 1 77 8 view .LVU128
+ 488 0084 672B      		or r22,r23
+ 489 0086 682B      		or r22,r24
+ 490 0088 692B      		or r22,r25
+ 491 008a 01F0      		breq .L38
+ 492               		.loc 1 77 22 is_stmt 1 discriminator 1 view .LVU129
+ 493               	.LVL54:
+ 494               		.loc 1 77 34 discriminator 1 view .LVU130
+ 495               		.loc 1 77 36 is_stmt 0 discriminator 1 view .LVU131
+ 496 008c 2F5F      		subi r18,lo8(-(1))
+ 497               	.LVL55:
+  78:./tmk_core/common/util.c ****     return n;
+ 498               		.loc 1 78 5 is_stmt 1 discriminator 1 view .LVU132
+ 499               	.L38:
+  79:./tmk_core/common/util.c **** }
+ 500               		.loc 1 79 1 is_stmt 0 view .LVU133
+ 501 008e 822F      		mov r24,r18
+ 502               	/* epilogue start */
+ 503 0090 FF90      		pop r15
+ 504 0092 EF90      		pop r14
+ 505 0094 DF90      		pop r13
+ 506 0096 CF90      		pop r12
+ 507 0098 0895      		ret
+ 508               		.cfi_endproc
+ 509               	.LFE5:
+ 511               		.section	.text.bitrev,"ax",@progbits
+ 512               	.global	bitrev
+ 514               	bitrev:
+ 515               	.LVL56:
+ 516               	.LFB6:
+  80:./tmk_core/common/util.c **** 
+  81:./tmk_core/common/util.c **** 
+  82:./tmk_core/common/util.c **** 
+  83:./tmk_core/common/util.c **** uint8_t bitrev(uint8_t bits)
+  84:./tmk_core/common/util.c **** {
+ 517               		.loc 1 84 1 is_stmt 1 view -0
+ 518               		.cfi_startproc
+ 519               	/* prologue: function */
+ 520               	/* frame size = 0 */
+ 521               	/* stack size = 0 */
+ 522               	.L__stack_usage = 0
+  85:./tmk_core/common/util.c ****     bits = (bits & 0x0f)<<4 | (bits & 0xf0)>>4;
+ 523               		.loc 1 85 5 view .LVU135
+ 524               		.loc 1 85 29 is_stmt 0 view .LVU136
+ 525 0000 8295      		swap r24
+ 526               	.LVL57:
+  86:./tmk_core/common/util.c ****     bits = (bits & 0b00110011)<<2 | (bits & 0b11001100)>>2;
+ 527               		.loc 1 86 5 is_stmt 1 view .LVU137
+ 528               		.loc 1 86 31 is_stmt 0 view .LVU138
+ 529 0002 90E0      		ldi r25,0
+ 530               	.LVL58:
+  87:./tmk_core/common/util.c ****     bits = (bits & 0b01010101)<<1 | (bits & 0b10101010)>>1;
+ 531               		.loc 1 87 5 is_stmt 1 view .LVU139
+  86:./tmk_core/common/util.c ****     bits = (bits & 0b00110011)<<2 | (bits & 0b11001100)>>2;
+ 532               		.loc 1 86 31 is_stmt 0 view .LVU140
+ 533 0004 9C01      		movw r18,r24
+ 534 0006 220F      		lsl r18
+ 535 0008 331F      		rol r19
+ 536 000a 220F      		lsl r18
+ 537 000c 331F      		rol r19
+ 538 000e 2C7C      		andi r18,lo8(-52)
+  86:./tmk_core/common/util.c ****     bits = (bits & 0b00110011)<<2 | (bits & 0b11001100)>>2;
+ 539               		.loc 1 86 56 view .LVU141
+ 540 0010 9595      		asr r25
+ 541 0012 8795      		ror r24
+ 542 0014 9595      		asr r25
+ 543 0016 8795      		ror r24
+ 544               	.LVL59:
+  86:./tmk_core/common/util.c ****     bits = (bits & 0b00110011)<<2 | (bits & 0b11001100)>>2;
+ 545               		.loc 1 86 56 view .LVU142
+ 546 0018 8373      		andi r24,lo8(51)
+  86:./tmk_core/common/util.c ****     bits = (bits & 0b00110011)<<2 | (bits & 0b11001100)>>2;
+ 547               		.loc 1 86 35 view .LVU143
+ 548 001a 282B      		or r18,r24
+ 549               		.loc 1 87 31 view .LVU144
+ 550 001c 30E0      		ldi r19,0
+ 551               	.LVL60:
+  88:./tmk_core/common/util.c ****     return bits;
+ 552               		.loc 1 88 5 is_stmt 1 view .LVU145
+  87:./tmk_core/common/util.c ****     bits = (bits & 0b01010101)<<1 | (bits & 0b10101010)>>1;
+ 553               		.loc 1 87 31 is_stmt 0 view .LVU146
+ 554 001e C901      		movw r24,r18
+ 555 0020 880F      		lsl r24
+ 556 0022 991F      		rol r25
+ 557 0024 8A7A      		andi r24,lo8(-86)
+  87:./tmk_core/common/util.c ****     bits = (bits & 0b01010101)<<1 | (bits & 0b10101010)>>1;
+ 558               		.loc 1 87 56 view .LVU147
+ 559 0026 3595      		asr r19
+ 560 0028 2795      		ror r18
+ 561               	.LVL61:
+  87:./tmk_core/common/util.c ****     bits = (bits & 0b01010101)<<1 | (bits & 0b10101010)>>1;
+ 562               		.loc 1 87 56 view .LVU148
+ 563 002a 2575      		andi r18,lo8(85)
+  89:./tmk_core/common/util.c **** }
+ 564               		.loc 1 89 1 view .LVU149
+ 565 002c 822B      		or r24,r18
+ 566               	/* epilogue start */
+ 567 002e 0895      		ret
+ 568               		.cfi_endproc
+ 569               	.LFE6:
+ 571               		.section	.text.bitrev16,"ax",@progbits
+ 572               	.global	bitrev16
+ 574               	bitrev16:
+ 575               	.LVL62:
+ 576               	.LFB7:
+  90:./tmk_core/common/util.c **** 
+  91:./tmk_core/common/util.c **** uint16_t bitrev16(uint16_t bits)
+  92:./tmk_core/common/util.c **** {
+ 577               		.loc 1 92 1 is_stmt 1 view -0
+ 578               		.cfi_startproc
+ 579               		.loc 1 92 1 is_stmt 0 view .LVU151
+ 580 0000 CF93      		push r28
+ 581               	.LCFI8:
+ 582               		.cfi_def_cfa_offset 3
+ 583               		.cfi_offset 28, -2
+ 584 0002 DF93      		push r29
+ 585               	.LCFI9:
+ 586               		.cfi_def_cfa_offset 4
+ 587               		.cfi_offset 29, -3
+ 588               	/* prologue: function */
+ 589               	/* frame size = 0 */
+ 590               	/* stack size = 2 */
+ 591               	.L__stack_usage = 2
+ 592 0004 D92F      		mov r29,r25
+  93:./tmk_core/common/util.c ****     bits = bitrev(bits & 0x00ff)<<8 | bitrev((bits & 0xff00)>>8);
+ 593               		.loc 1 93 5 is_stmt 1 view .LVU152
+ 594               		.loc 1 93 12 is_stmt 0 view .LVU153
+ 595 0006 0E94 0000 		call bitrev
+ 596               	.LVL63:
+ 597               		.loc 1 93 12 view .LVU154
+ 598 000a C82F      		mov r28,r24
+ 599               		.loc 1 93 39 view .LVU155
+ 600 000c 8D2F      		mov r24,r29
+ 601 000e 0E94 0000 		call bitrev
+ 602               	.LVL64:
+  94:./tmk_core/common/util.c ****     return bits;
+ 603               		.loc 1 94 5 is_stmt 1 view .LVU156
+  95:./tmk_core/common/util.c **** }
+ 604               		.loc 1 95 1 is_stmt 0 view .LVU157
+ 605 0012 9C2F      		mov r25,r28
+ 606               	/* epilogue start */
+ 607 0014 DF91      		pop r29
+ 608 0016 CF91      		pop r28
+ 609               	.LVL65:
+ 610               		.loc 1 95 1 view .LVU158
+ 611 0018 0895      		ret
+ 612               		.cfi_endproc
+ 613               	.LFE7:
+ 615               		.section	.text.bitrev32,"ax",@progbits
+ 616               	.global	bitrev32
+ 618               	bitrev32:
+ 619               	.LVL66:
+ 620               	.LFB8:
+  96:./tmk_core/common/util.c **** 
+  97:./tmk_core/common/util.c **** uint32_t bitrev32(uint32_t bits)
+  98:./tmk_core/common/util.c **** {
+ 621               		.loc 1 98 1 is_stmt 1 view -0
+ 622               		.cfi_startproc
+ 623               		.loc 1 98 1 is_stmt 0 view .LVU160
+ 624 0000 CF92      		push r12
+ 625               	.LCFI10:
+ 626               		.cfi_def_cfa_offset 3
+ 627               		.cfi_offset 12, -2
+ 628 0002 DF92      		push r13
+ 629               	.LCFI11:
+ 630               		.cfi_def_cfa_offset 4
+ 631               		.cfi_offset 13, -3
+ 632 0004 EF92      		push r14
+ 633               	.LCFI12:
+ 634               		.cfi_def_cfa_offset 5
+ 635               		.cfi_offset 14, -4
+ 636 0006 FF92      		push r15
+ 637               	.LCFI13:
+ 638               		.cfi_def_cfa_offset 6
+ 639               		.cfi_offset 15, -5
+ 640 0008 0F93      		push r16
+ 641               	.LCFI14:
+ 642               		.cfi_def_cfa_offset 7
+ 643               		.cfi_offset 16, -6
+ 644 000a 1F93      		push r17
+ 645               	.LCFI15:
+ 646               		.cfi_def_cfa_offset 8
+ 647               		.cfi_offset 17, -7
+ 648 000c CF93      		push r28
+ 649               	.LCFI16:
+ 650               		.cfi_def_cfa_offset 9
+ 651               		.cfi_offset 28, -8
+ 652 000e DF93      		push r29
+ 653               	.LCFI17:
+ 654               		.cfi_def_cfa_offset 10
+ 655               		.cfi_offset 29, -9
+ 656               	/* prologue: function */
+ 657               	/* frame size = 0 */
+ 658               	/* stack size = 8 */
+ 659               	.L__stack_usage = 8
+ 660 0010 7C01      		movw r14,r24
+  99:./tmk_core/common/util.c ****     bits = (uint32_t)bitrev16(bits & 0x0000ffff)<<16 | bitrev16((bits & 0xffff0000)>>16);
+ 661               		.loc 1 99 5 is_stmt 1 view .LVU161
+ 662               		.loc 1 99 22 is_stmt 0 view .LVU162
+ 663 0012 CB01      		movw r24,r22
+ 664 0014 0E94 0000 		call bitrev16
+ 665               	.LVL67:
+ 666               		.loc 1 99 22 view .LVU163
+ 667 0018 EC01      		movw r28,r24
+ 668               		.loc 1 99 56 view .LVU164
+ 669 001a C701      		movw r24,r14
+ 670 001c 0E94 0000 		call bitrev16
+ 671               	.LVL68:
+ 672 0020 8C01      		movw r16,r24
+ 673               	.LVL69:
+ 100:./tmk_core/common/util.c ****     return bits;
+ 674               		.loc 1 100 5 is_stmt 1 view .LVU165
+  99:./tmk_core/common/util.c ****     bits = (uint32_t)bitrev16(bits & 0x0000ffff)<<16 | bitrev16((bits & 0xffff0000)>>16);
+ 675               		.loc 1 99 12 is_stmt 0 view .LVU166
+ 676 0022 BE01      		movw r22,r28
+ 677 0024 90E0      		ldi r25,0
+ 678 0026 80E0      		ldi r24,0
+  99:./tmk_core/common/util.c ****     bits = (uint32_t)bitrev16(bits & 0x0000ffff)<<16 | bitrev16((bits & 0xffff0000)>>16);
+ 679               		.loc 1 99 49 view .LVU167
+ 680 0028 CB01      		movw r24,r22
+ 681 002a 7727      		clr r23
+ 682 002c 6627      		clr r22
+  99:./tmk_core/common/util.c ****     bits = (uint32_t)bitrev16(bits & 0x0000ffff)<<16 | bitrev16((bits & 0xffff0000)>>16);
+ 683               		.loc 1 99 56 view .LVU168
+ 684 002e 30E0      		ldi r19,0
+ 685 0030 20E0      		ldi r18,0
+  99:./tmk_core/common/util.c ****     bits = (uint32_t)bitrev16(bits & 0x0000ffff)<<16 | bitrev16((bits & 0xffff0000)>>16);
+ 686               		.loc 1 99 10 view .LVU169
+ 687 0032 602B      		or r22,r16
+ 688 0034 712B      		or r23,r17
+ 689 0036 822B      		or r24,r18
+ 690 0038 932B      		or r25,r19
+ 691               	/* epilogue start */
+ 101:./tmk_core/common/util.c **** }
+ 692               		.loc 1 101 1 view .LVU170
+ 693 003a DF91      		pop r29
+ 694 003c CF91      		pop r28
+ 695               	.LVL70:
+ 696               		.loc 1 101 1 view .LVU171
+ 697 003e 1F91      		pop r17
+ 698 0040 0F91      		pop r16
+ 699 0042 FF90      		pop r15
+ 700 0044 EF90      		pop r14
+ 701 0046 DF90      		pop r13
+ 702 0048 CF90      		pop r12
+ 703 004a 0895      		ret
+ 704               		.cfi_endproc
+ 705               	.LFE8:
+ 707               		.text
+ 708               	.Letext0:
+ 709               		.file 2 "/usr/local/Cellar/avr-gcc@8/8.5.0_1/avr/include/stdint.h"
+DEFINED SYMBOLS
+                            *ABS*:00000000 util.c
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2      *ABS*:0000003e __SP_H__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:3      *ABS*:0000003d __SP_L__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:4      *ABS*:0000003f __SREG__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:5      *ABS*:00000000 __tmp_reg__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:6      *ABS*:00000001 __zero_reg__
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:13     .text.bitpop:00000000 bitpop
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:17     .text.bitpop:00000000 .Loc.0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:18     .text.bitpop:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:23     .text.bitpop:00000000 .Loc.1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:24     .text.bitpop:00000000 .Loc.2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:25     .text.bitpop:00000000 .Loc.3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:29     .text.bitpop:00000002 .Loc.4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:30     .text.bitpop:00000002 .Loc.5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:33     .text.bitpop:00000006 .Loc.6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:34     .text.bitpop:00000006 .Loc.7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:38     .text.bitpop:00000008 .Loc.8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:42     .text.bitpop:0000000a .Loc.9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:43     .text.bitpop:0000000a .Loc.10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:46     .text.bitpop:0000000e .Loc.11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:49     .text.bitpop:00000010 .Loc.12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:50     .text.bitpop:00000010 .Loc.13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:53     .text.bitpop:00000012 .Loc.14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:55     .text.bitpop:00000014 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:61     .text.bitpop16:00000000 bitpop16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:64     .text.bitpop16:00000000 .Loc.15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:65     .text.bitpop16:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:70     .text.bitpop16:00000000 .Loc.16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:71     .text.bitpop16:00000000 .Loc.17
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:72     .text.bitpop16:00000000 .Loc.18
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:76     .text.bitpop16:00000002 .Loc.19
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:77     .text.bitpop16:00000002 .Loc.20
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:80     .text.bitpop16:00000006 .Loc.21
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:81     .text.bitpop16:00000006 .Loc.22
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:85     .text.bitpop16:00000008 .Loc.23
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:89     .text.bitpop16:0000000a .Loc.24
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:90     .text.bitpop16:0000000a .Loc.25
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:94     .text.bitpop16:00000010 .Loc.26
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:97     .text.bitpop16:00000012 .Loc.27
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:100    .text.bitpop16:00000014 .Loc.28
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:101    .text.bitpop16:00000014 .Loc.29
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:104    .text.bitpop16:00000016 .Loc.30
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:106    .text.bitpop16:00000018 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:112    .text.bitpop32:00000000 bitpop32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:115    .text.bitpop32:00000000 .Loc.31
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:116    .text.bitpop32:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:117    .text.bitpop32:00000000 .Loc.32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:138    .text.bitpop32:00000008 .Loc.33
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:139    .text.bitpop32:00000008 .Loc.34
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:141    .text.bitpop32:00000008 .Loc.35
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:145    .text.bitpop32:0000000a .Loc.36
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:146    .text.bitpop32:0000000a .Loc.37
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:152    .text.bitpop32:00000014 .Loc.38
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:153    .text.bitpop32:00000014 .Loc.39
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:162    .text.bitpop32:00000020 .Loc.40
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:163    .text.bitpop32:00000020 .Loc.41
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:171    .text.bitpop32:0000002e .Loc.42
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:174    .text.bitpop32:00000030 .Loc.43
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:179    .text.bitpop32:00000036 .Loc.44
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:180    .text.bitpop32:00000036 .Loc.45
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:183    .text.bitpop32:00000038 .Loc.46
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:185    .text.bitpop32:0000003a L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:191    .text.biton:00000000 biton
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:194    .text.biton:00000000 .Loc.47
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:195    .text.biton:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:200    .text.biton:00000000 .Loc.48
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:201    .text.biton:00000000 .Loc.49
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:202    .text.biton:00000000 .Loc.50
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:206    .text.biton:00000006 .Loc.51
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:210    .text.biton:0000000a .Loc.52
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:214    .text.biton:0000000c .Loc.53
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:215    .text.biton:0000000c .Loc.54
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:219    .text.biton:00000012 .Loc.55
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:221    .text.biton:00000014 .Loc.56
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:223    .text.biton:00000014 .Loc.57
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:224    .text.biton:00000014 .Loc.58
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:227    .text.biton:00000016 .Loc.59
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:231    .text.biton:00000018 .Loc.60
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:232    .text.biton:00000018 .Loc.61
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:235    .text.biton:0000001a .Loc.62
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:237    .text.biton:0000001c .Loc.63
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:239    .text.biton:0000001c .Loc.64
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:240    .text.biton:0000001c .Loc.65
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:243    .text.biton:0000001e .Loc.66
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:245    .text.biton:0000001e .Loc.67
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:249    .text.biton:00000022 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:255    .text.biton16:00000000 biton16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:258    .text.biton16:00000000 .Loc.68
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:259    .text.biton16:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:264    .text.biton16:00000000 .Loc.69
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:265    .text.biton16:00000000 .Loc.70
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:266    .text.biton16:00000000 .Loc.71
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:269    .text.biton16:00000004 .Loc.72
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:271    .text.biton16:00000006 .Loc.73
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:277    .text.biton16:0000000e .Loc.74
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:281    .text.biton16:00000010 .Loc.75
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:282    .text.biton16:00000010 .Loc.76
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:290    .text.biton16:0000001c .Loc.77
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:294    .text.biton16:00000022 .Loc.78
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:296    .text.biton16:00000022 .Loc.79
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:297    .text.biton16:00000022 .Loc.80
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:300    .text.biton16:00000024 .Loc.81
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:304    .text.biton16:00000026 .Loc.82
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:305    .text.biton16:00000026 .Loc.83
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:311    .text.biton16:00000030 .Loc.84
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:315    .text.biton16:00000036 .Loc.85
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:317    .text.biton16:00000036 .Loc.86
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:318    .text.biton16:00000036 .Loc.87
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:321    .text.biton16:00000038 .Loc.88
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:325    .text.biton16:0000003a .Loc.89
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:326    .text.biton16:0000003a .Loc.90
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:330    .text.biton16:0000003e .Loc.91
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:333    .text.biton16:00000042 .Loc.92
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:335    .text.biton16:00000042 .Loc.93
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:336    .text.biton16:00000042 .Loc.94
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:339    .text.biton16:00000044 .Loc.95
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:341    .text.biton16:00000044 .Loc.96
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:345    .text.biton16:00000048 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:351    .text.biton32:00000000 biton32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:354    .text.biton32:00000000 .Loc.97
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:355    .text.biton32:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:356    .text.biton32:00000000 .Loc.98
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:377    .text.biton32:00000008 .Loc.99
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:379    .text.biton32:00000008 .Loc.100
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:380    .text.biton32:00000008 .Loc.101
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:384    .text.biton32:0000000e .Loc.102
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:386    .text.biton32:00000010 .Loc.103
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:395    .text.biton32:0000001e .Loc.104
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:399    .text.biton32:00000020 .Loc.105
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:400    .text.biton32:00000020 .Loc.106
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:405    .text.biton32:00000028 .Loc.107
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:411    .text.biton32:00000032 .Loc.108
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:413    .text.biton32:00000032 .Loc.109
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:414    .text.biton32:00000032 .Loc.110
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:417    .text.biton32:00000034 .Loc.111
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:422    .text.biton32:00000038 .Loc.112
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:423    .text.biton32:00000038 .Loc.113
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:434    .text.biton32:0000004a .Loc.114
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:440    .text.biton32:00000054 .Loc.115
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:442    .text.biton32:00000054 .Loc.116
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:443    .text.biton32:00000054 .Loc.117
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:446    .text.biton32:00000056 .Loc.118
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:451    .text.biton32:0000005a .Loc.119
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:452    .text.biton32:0000005a .Loc.120
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:463    .text.biton32:0000006c .Loc.121
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:469    .text.biton32:00000076 .Loc.122
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:471    .text.biton32:00000076 .Loc.123
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:472    .text.biton32:00000076 .Loc.124
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:475    .text.biton32:00000078 .Loc.125
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:480    .text.biton32:0000007c .Loc.126
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:481    .text.biton32:0000007c .Loc.127
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:487    .text.biton32:00000084 .Loc.128
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:492    .text.biton32:0000008c .Loc.129
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:494    .text.biton32:0000008c .Loc.130
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:495    .text.biton32:0000008c .Loc.131
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:498    .text.biton32:0000008e .Loc.132
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:500    .text.biton32:0000008e .Loc.133
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:508    .text.biton32:0000009a L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:514    .text.bitrev:00000000 bitrev
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:517    .text.bitrev:00000000 .Loc.134
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:518    .text.bitrev:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:523    .text.bitrev:00000000 .Loc.135
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:524    .text.bitrev:00000000 .Loc.136
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:527    .text.bitrev:00000002 .Loc.137
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:528    .text.bitrev:00000002 .Loc.138
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:531    .text.bitrev:00000004 .Loc.139
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:532    .text.bitrev:00000004 .Loc.140
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:539    .text.bitrev:00000010 .Loc.141
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:545    .text.bitrev:00000018 .Loc.142
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:547    .text.bitrev:0000001a .Loc.143
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:549    .text.bitrev:0000001c .Loc.144
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:552    .text.bitrev:0000001e .Loc.145
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:553    .text.bitrev:0000001e .Loc.146
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:558    .text.bitrev:00000026 .Loc.147
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:562    .text.bitrev:0000002a .Loc.148
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:564    .text.bitrev:0000002c .Loc.149
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:568    .text.bitrev:00000030 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:574    .text.bitrev16:00000000 bitrev16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:577    .text.bitrev16:00000000 .Loc.150
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:578    .text.bitrev16:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:579    .text.bitrev16:00000000 .Loc.151
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:593    .text.bitrev16:00000006 .Loc.152
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:594    .text.bitrev16:00000006 .Loc.153
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:597    .text.bitrev16:0000000a .Loc.154
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:599    .text.bitrev16:0000000c .Loc.155
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:603    .text.bitrev16:00000012 .Loc.156
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:604    .text.bitrev16:00000012 .Loc.157
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:610    .text.bitrev16:00000018 .Loc.158
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:612    .text.bitrev16:0000001a L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:618    .text.bitrev32:00000000 bitrev32
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:621    .text.bitrev32:00000000 .Loc.159
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:622    .text.bitrev32:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:623    .text.bitrev32:00000000 .Loc.160
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:661    .text.bitrev32:00000012 .Loc.161
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:662    .text.bitrev32:00000012 .Loc.162
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:666    .text.bitrev32:00000018 .Loc.163
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:668    .text.bitrev32:0000001a .Loc.164
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:674    .text.bitrev32:00000022 .Loc.165
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:675    .text.bitrev32:00000022 .Loc.166
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:679    .text.bitrev32:00000028 .Loc.167
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:683    .text.bitrev32:0000002e .Loc.168
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:686    .text.bitrev32:00000032 .Loc.169
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:692    .text.bitrev32:0000003a .Loc.170
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:696    .text.bitrev32:0000003e .Loc.171
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:704    .text.bitrev32:0000004c L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:58     .text.bitpop:00000014 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:109    .text.bitpop16:00000018 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:188    .text.bitpop32:0000003a L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:252    .text.biton:00000022 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:348    .text.biton16:00000048 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:511    .text.biton32:0000009a L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:571    .text.bitrev:00000030 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:615    .text.bitrev16:0000001a L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:707    .text.bitrev32:0000004c L0
+                     .debug_frame:00000000 L0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:41     .text.bitpop:0000000a .L3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:28     .text.bitpop:00000002 .L2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:88     .text.bitpop16:0000000a .L6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:75     .text.bitpop16:00000002 .L5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:161    .text.bitpop32:00000020 .L9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:144    .text.bitpop32:0000000a .L8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:212    .text.biton:0000000c .L11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:230    .text.biton:00000018 .L12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:244    .text.biton:0000001e .L10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:279    .text.biton16:00000010 .L24
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:285    .text.biton16:00000014 .L11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:303    .text.biton16:00000026 .L25
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:324    .text.biton16:0000003a .L26
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:340    .text.biton16:00000044 .L23
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:397    .text.biton32:00000020 .L39
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:421    .text.biton32:00000038 .L40
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:427    .text.biton32:0000003e .L12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:450    .text.biton32:0000005a .L41
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:456    .text.biton32:00000060 .L13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:479    .text.biton32:0000007c .L42
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:499    .text.biton32:0000008e .L38
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1068   .debug_abbrev:00000000 .Ldebug_abbrev0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2109   .debug_ranges:00000000 .Ldebug_ranges0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2131   .debug_line:00000000 .Ldebug_line0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:620    .text.bitrev32:00000000 .LFB8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:705    .text.bitrev32:0000004c .LFE8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1280   .debug_loc:00000000 .LLST17
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1344   .debug_loc:00000083 .LLST18
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1337   .debug_loc:0000007d .LVUS18
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:665    .text.bitrev32:00000018 .LVL67
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:671    .text.bitrev32:00000020 .LVL68
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:576    .text.bitrev16:00000000 .LFB7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:613    .text.bitrev16:0000001a .LFE7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1386   .debug_loc:000000c9 .LLST15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1416   .debug_loc:00000100 .LLST16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1407   .debug_loc:000000f8 .LVUS16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:596    .text.bitrev16:0000000a .LVL63
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:602    .text.bitrev16:00000012 .LVL64
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:516    .text.bitrev:00000000 .LFB6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:569    .text.bitrev:00000030 .LFE6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1478   .debug_loc:0000015e .LLST14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1469   .debug_loc:00000156 .LVUS14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:353    .text.biton32:00000000 .LFB5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:509    .text.biton32:0000009a .LFE5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1527   .debug_loc:000001b0 .LLST11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1581   .debug_loc:0000020d .LLST12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1560   .debug_loc:000001f9 .LVUS12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1721   .debug_loc:000002e3 .LLST13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1716   .debug_loc:000002df .LVUS13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:257    .text.biton16:00000000 .LFB4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:346    .text.biton16:00000048 .LFE4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1750   .debug_loc:00000312 .LLST9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1733   .debug_loc:00000302 .LVUS9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1824   .debug_loc:00000398 .LLST10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1819   .debug_loc:00000394 .LVUS10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:193    .text.biton:00000000 .LFB3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:250    .text.biton:00000022 .LFE3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1849   .debug_loc:000003c3 .LLST7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1836   .debug_loc:000003b7 .LVUS7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1885   .debug_loc:00000415 .LLST8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1880   .debug_loc:00000411 .LVUS8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:114    .text.bitpop32:00000000 .LFB2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:186    .text.bitpop32:0000003a .LFE2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1897   .debug_loc:00000434 .LLST4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1935   .debug_loc:00000481 .LLST5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1930   .debug_loc:0000047d .LVUS5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1973   .debug_loc:000004b9 .LLST6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1968   .debug_loc:000004b5 .LVUS6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:63     .text.bitpop16:00000000 .LFB1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:107    .text.bitpop16:00000018 .LFE1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1994   .debug_loc:000004e0 .LLST2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:1985   .debug_loc:000004d8 .LVUS2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2035   .debug_loc:00000529 .LLST3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2030   .debug_loc:00000525 .LVUS3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:15     .text.bitpop:00000000 .LFB0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:56     .text.bitpop:00000014 .LFE0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2052   .debug_loc:0000054c .LLST0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2047   .debug_loc:00000548 .LVUS0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2068   .debug_loc:0000056e .LLST1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:2063   .debug_loc:0000056a .LVUS1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:625    .text.bitrev32:00000002 .LCFI10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:629    .text.bitrev32:00000004 .LCFI11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:633    .text.bitrev32:00000006 .LCFI12
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:637    .text.bitrev32:00000008 .LCFI13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:641    .text.bitrev32:0000000a .LCFI14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:645    .text.bitrev32:0000000c .LCFI15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:649    .text.bitrev32:0000000e .LCFI16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:653    .text.bitrev32:00000010 .LCFI17
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:619    .text.bitrev32:00000000 .LVL66
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:673    .text.bitrev32:00000022 .LVL69
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:695    .text.bitrev32:0000003e .LVL70
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:581    .text.bitrev16:00000002 .LCFI8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:585    .text.bitrev16:00000004 .LCFI9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:575    .text.bitrev16:00000000 .LVL62
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:609    .text.bitrev16:00000018 .LVL65
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:515    .text.bitrev:00000000 .LVL56
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:526    .text.bitrev:00000002 .LVL57
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:530    .text.bitrev:00000004 .LVL58
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:544    .text.bitrev:00000018 .LVL59
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:551    .text.bitrev:0000001e .LVL60
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:561    .text.bitrev:0000002a .LVL61
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:358    .text.biton32:00000002 .LCFI4
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:362    .text.biton32:00000004 .LCFI5
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:366    .text.biton32:00000006 .LCFI6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:370    .text.biton32:00000008 .LCFI7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:352    .text.biton32:00000000 .LVL40
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:394    .text.biton32:0000001e .LVL42
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:398    .text.biton32:00000020 .LVL43
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:412    .text.biton32:00000032 .LVL44
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:420    .text.biton32:00000038 .LVL46
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:441    .text.biton32:00000054 .LVL47
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:449    .text.biton32:0000005a .LVL49
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:470    .text.biton32:00000076 .LVL50
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:478    .text.biton32:0000007c .LVL52
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:486    .text.biton32:00000084 .LVL53
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:493    .text.biton32:0000008c .LVL54
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:497    .text.biton32:0000008e .LVL55
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:378    .text.biton32:00000008 .LVL41
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:256    .text.biton16:00000000 .LVL28
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:276    .text.biton16:0000000e .LVL29
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:280    .text.biton16:00000010 .LVL30
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:295    .text.biton16:00000022 .LVL31
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:302    .text.biton16:00000026 .LVL33
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:316    .text.biton16:00000036 .LVL34
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:323    .text.biton16:0000003a .LVL36
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:329    .text.biton16:0000003e .LVL37
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:334    .text.biton16:00000042 .LVL38
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:338    .text.biton16:00000044 .LVL39
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:192    .text.biton:00000000 .LVL19
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:209    .text.biton:0000000a .LVL20
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:213    .text.biton:0000000c .LVL21
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:222    .text.biton:00000014 .LVL22
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:229    .text.biton:00000018 .LVL24
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:234    .text.biton:0000001a .LVL25
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:238    .text.biton:0000001c .LVL26
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:242    .text.biton:0000001e .LVL27
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:119    .text.bitpop32:00000002 .LCFI0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:123    .text.bitpop32:00000004 .LCFI1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:127    .text.bitpop32:00000006 .LCFI2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:131    .text.bitpop32:00000008 .LCFI3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:113    .text.bitpop32:00000000 .LVL13
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:173    .text.bitpop32:00000030 .LVL16
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:178    .text.bitpop32:00000036 .LVL17
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:140    .text.bitpop32:00000008 .LVL14
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:143    .text.bitpop32:0000000a .LVL15
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:62     .text.bitpop16:00000000 .LVL6
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:83     .text.bitpop16:00000008 .LVL8
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:87     .text.bitpop16:0000000a .LVL9
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:96     .text.bitpop16:00000012 .LVL10
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:99     .text.bitpop16:00000014 .LVL11
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:74     .text.bitpop16:00000002 .LVL7
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:14     .text.bitpop:00000000 .LVL0
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:36     .text.bitpop:00000008 .LVL2
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:40     .text.bitpop:0000000a .LVL3
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:27     .text.bitpop:00000002 .LVL1
+/var/folders/f1/r0m_vh_54tg0jls9tjh4vqkr0000gn/T//cc7z515y.s:711    .debug_info:00000000 .Ldebug_info0
+
+NO UNDEFINED SYMBOLS
